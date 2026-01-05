@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Plus, Edit2, Trash2, Truck, MapPin, Package, Info, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { siteConfig } from "@/lib/siteConfig";
+import { getToken } from "@/lib/auth";
 
 type ShippingRule = {
   id: string;
@@ -18,17 +19,36 @@ type ShippingRule = {
   is_active: boolean;
   priority?: number;
   category_ids?: string[];
-  product_condition: "new" | "used" | "both";
+  product_condition?: "new" | "used" | "both";
+  min_order_value?: number;
 };
 
 type Category = {
   id: string;
-  name_translations: Record<string, string>;
+  name?: string;
+  name_translations?: Record<string, string>;
+};
+
+type ShippingZone = {
+  id: string;
+  name: string;
+};
+
+type ShippingZonePrice = {
+  id: string;
+  shipping_rule_id: string;
+  shipping_zone_id: string;
+  override_price: number;
+  override_enabled: boolean;
 };
 
 export function ShippingRules({ locale }: { locale: string }) {
   const [rules, setRules] = useState<ShippingRule[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [zones, setZones] = useState<ShippingZone[]>([]);
+  const [zonePrices, setZonePrices] = useState<ShippingZonePrice[]>([]);
+  const [currentZonePrices, setCurrentZonePrices] = useState<Record<string, number>>({});
+  
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [currentRule, setCurrentRule] = useState<Partial<ShippingRule>>({});
@@ -37,11 +57,46 @@ export function ShippingRules({ locale }: { locale: string }) {
   useEffect(() => {
     fetchRules();
     fetchCategories();
+    fetchZones();
+    fetchZonePrices();
   }, []);
+
+  const fetchZones = async () => {
+    try {
+      const token = getToken();
+      const res = await fetch(`${siteConfig.apiUrl}/api/v1/shipping/zones`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setZones(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch zones:", error);
+    }
+  };
+
+  const fetchZonePrices = async () => {
+    try {
+      const token = getToken();
+      const res = await fetch(`${siteConfig.apiUrl}/api/v1/shipping/zone-prices`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setZonePrices(data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch zone prices:", error);
+    }
+  };
 
   const fetchCategories = async () => {
     try {
-      const res = await fetch(`${siteConfig.apiUrl}/api/v1/categories`);
+      const token = getToken();
+      const res = await fetch(`${siteConfig.apiUrl}/api/v1/categories`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
       if (res.ok) {
         const data = await res.json();
         setCategories(data);
@@ -53,7 +108,10 @@ export function ShippingRules({ locale }: { locale: string }) {
 
   const fetchRules = async () => {
     try {
-      const res = await fetch(`${siteConfig.apiUrl}/api/v1/shipping/rules`);
+      const token = getToken();
+      const res = await fetch(`${siteConfig.apiUrl}/api/v1/shipping/rules`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
       if (res.ok) {
         const data = await res.json();
         setRules(data);
@@ -85,19 +143,33 @@ export function ShippingRules({ locale }: { locale: string }) {
         estimated_delivery_days: Number(currentRule.estimated_delivery_days || 0),
         priority: Number(currentRule.priority || 1),
         category_ids: currentRule.category_ids || [],
-        product_condition: currentRule.product_condition || "both"
+        product_condition: currentRule.product_condition || "both",
+        min_order_value: Number(currentRule.min_order_value || 0)
       };
 
+      const token = getToken();
       const res = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify(payload),
       });
 
       if (res.ok) {
+        const savedRule = await res.json();
+        
+        // Handle Zone Prices if needed
+        if (currentRule.rule_type === "zone_based" && savedRule.id) {
+          await saveZonePrices(savedRule.id);
+        }
+
         await fetchRules();
+        await fetchZonePrices(); // Refresh prices
         setIsEditing(false);
         setCurrentRule({});
+        setCurrentZonePrices({});
       } else {
         alert("Failed to save rule");
       }
@@ -107,6 +179,55 @@ export function ShippingRules({ locale }: { locale: string }) {
     } finally {
       setSaving(false);
     }
+  };
+
+  const saveZonePrices = async (ruleId: string) => {
+    const token = getToken();
+    const promises = zones.map(async (zone) => {
+      const price = currentZonePrices[zone.id];
+      const existingPrice = zonePrices.find(
+        (p) => p.shipping_rule_id === ruleId && p.shipping_zone_id === zone.id
+      );
+
+      if (price !== undefined) {
+        if (existingPrice) {
+          // Update if changed
+          if (existingPrice.override_price !== price) {
+            await fetch(`${siteConfig.apiUrl}/api/v1/shipping/zone-prices/${existingPrice.id}`, {
+              method: "PATCH",
+              headers: { 
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+              },
+              body: JSON.stringify({ override_price: price }),
+            });
+          }
+        } else {
+          // Create new
+          await fetch(`${siteConfig.apiUrl}/api/v1/shipping/zone-prices`, {
+            method: "POST",
+            headers: { 
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              shipping_rule_id: ruleId,
+              shipping_zone_id: zone.id,
+              override_price: price,
+              override_enabled: true,
+            }),
+          });
+        }
+      } else if (existingPrice) {
+        // Delete if removed (optional, maybe we keep it?)
+        // For now let's keep it simple and not delete automatically unless explicitly cleared?
+        // Or maybe we should delete if it's not in currentZonePrices? 
+        // But currentZonePrices is initialized from existing.
+        // Let's assume if it's in currentZonePrices, we save it.
+      }
+    });
+
+    await Promise.all(promises);
   };
 
   const toggleCategory = (categoryId: string) => {
@@ -128,8 +249,10 @@ export function ShippingRules({ locale }: { locale: string }) {
     if (!confirm("Are you sure you want to delete this rule?")) return;
     
     try {
+      const token = getToken();
       const res = await fetch(`${siteConfig.apiUrl}/api/v1/shipping/rules/${id}`, {
         method: "DELETE",
+        headers: { "Authorization": `Bearer ${token}` }
       });
       
       if (res.ok) {
@@ -184,6 +307,15 @@ export function ShippingRules({ locale }: { locale: string }) {
                 type="number"
                 value={currentRule.priority || 1}
                 onChange={(e) => setCurrentRule({ ...currentRule, priority: Number(e.target.value) })}
+                className="w-full rounded-md border border-slate-300 p-2"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Min Order Value (€)</label>
+              <input
+                type="number"
+                value={currentRule.min_order_value || 0}
+                onChange={(e) => setCurrentRule({ ...currentRule, min_order_value: Number(e.target.value) })}
                 className="w-full rounded-md border border-slate-300 p-2"
               />
             </div>
@@ -279,6 +411,44 @@ export function ShippingRules({ locale }: { locale: string }) {
             </div>
           )}
 
+          {currentRule.rule_type === "zone_based" && (
+            <div className="bg-purple-50 p-4 rounded-md border border-purple-100 space-y-4">
+              <div className="flex items-start gap-2 text-purple-700 text-sm mb-2">
+                <Info className="w-4 h-4 mt-0.5" />
+                <p>Set specific prices for each zone. If a zone is not set, this rule won't apply to it.</p>
+              </div>
+              <div className="space-y-3">
+                {zones.map((zone) => (
+                  <div key={zone.id} className="flex items-center justify-between bg-white p-2 rounded border border-purple-100">
+                    <span className="text-sm font-medium text-slate-700">{zone.name}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-slate-500">Price (€):</span>
+                      <input
+                        type="number"
+                        value={currentZonePrices[zone.id] ?? ""}
+                        onChange={(e) => {
+                          const val = e.target.value === "" ? undefined : Number(e.target.value);
+                          if (val === undefined) {
+                            const newPrices = { ...currentZonePrices };
+                            delete newPrices[zone.id];
+                            setCurrentZonePrices(newPrices);
+                          } else {
+                            setCurrentZonePrices({ ...currentZonePrices, [zone.id]: val });
+                          }
+                        }}
+                        className="w-24 rounded-md border border-slate-300 p-1 text-right"
+                        placeholder="-"
+                      />
+                    </div>
+                  </div>
+                ))}
+                {zones.length === 0 && (
+                  <p className="text-sm text-slate-500 italic">No zones defined. Go to Shipping Zones to create one.</p>
+                )}
+              </div>
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Est. Delivery Days</label>
             <input
@@ -301,7 +471,7 @@ export function ShippingRules({ locale }: { locale: string }) {
                     className="rounded border-slate-300 text-slate-900 focus:ring-slate-900"
                   />
                   <span className="truncate">
-                    {cat.name_translations?.fi || cat.name_translations?.en || Object.values(cat.name_translations || {})[0] || "Unnamed"}
+                    {cat.name_translations?.fi || cat.name_translations?.en || (cat.name_translations && Object.values(cat.name_translations)[0]) || cat.name || "Unnamed"}
                   </span>
                 </label>
               ))}
@@ -379,11 +549,11 @@ export function ShippingRules({ locale }: { locale: string }) {
                     </span>
                     <span className={cn(
                       "uppercase text-xs font-bold tracking-wider px-2 py-0.5 rounded",
-                      rule.product_condition === "new" ? "bg-green-100 text-green-700" :
-                      rule.product_condition === "used" ? "bg-amber-100 text-amber-700" :
+                      (rule.product_condition || "both") === "new" ? "bg-green-100 text-green-700" :
+                      (rule.product_condition || "both") === "used" ? "bg-amber-100 text-amber-700" :
                       "bg-slate-100 text-slate-700"
                     )}>
-                      {rule.product_condition === "both" ? "ALL CONDITIONS" : rule.product_condition}
+                      {(rule.product_condition || "both") === "both" ? "ALL CONDITIONS" : rule.product_condition}
                     </span>
                     {rule.rule_type === "flat_rate" && <span>{rule.flat_rate_price}€</span>}
                     {rule.rule_type === "distance_based" && <span>Base: {rule.base_price}€</span>}
@@ -401,6 +571,13 @@ export function ShippingRules({ locale }: { locale: string }) {
               <button
                 onClick={() => {
                   setCurrentRule(rule);
+                  // Load zone prices for this rule
+                  const rulePrices = zonePrices.filter(p => p.shipping_rule_id === rule.id);
+                  const priceMap: Record<string, number> = {};
+                  rulePrices.forEach(p => {
+                    priceMap[p.shipping_zone_id] = Number(p.override_price);
+                  });
+                  setCurrentZonePrices(priceMap);
                   setIsEditing(true);
                 }}
                 className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-full"

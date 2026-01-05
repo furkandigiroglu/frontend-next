@@ -14,7 +14,7 @@ export const siteConfig = {
   ogImage: "https://ehankki.fi/og-furniture.jpg",
   contactEmail: "destek@ehankki.fi",
   phone: "+358 41 123 00 20",
-  apiUrl: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000",
+  apiUrl: process.env.NEXT_PUBLIC_API_URL || "http://185.96.163.183:8000",
 };
 
 type SiteConfig = typeof siteConfig;

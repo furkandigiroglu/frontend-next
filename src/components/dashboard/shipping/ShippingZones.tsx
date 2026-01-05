@@ -3,6 +3,16 @@
 import { useState, useEffect } from "react";
 import { Plus, Edit2, Trash2, Map, Info, Loader2 } from "lucide-react";
 import { siteConfig } from "@/lib/siteConfig";
+import { 
+  getCities, 
+  getPostalCodesByCity, 
+  getPostalCodesByRadius, 
+  getRegions,
+  getPostalCodesByRegion,
+  getAllFinnishPostalCodes,
+  FINNISH_POSTAL_CODES 
+} from "@/lib/finnish-postal-codes";
+import { getToken } from "@/lib/auth";
 
 type PostalCodeRange = {
   postal_code_start: string;
@@ -27,16 +37,71 @@ export function ShippingZones({ locale }: { locale: string }) {
   const [postalCodeInput, setPostalCodeInput] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // Smart Add States
+  const [cities, setCities] = useState<string[]>([]);
+  const [regions, setRegions] = useState<string[]>([]);
+  const [selectedCity, setSelectedCity] = useState("");
+  const [selectedRegion, setSelectedRegion] = useState("");
+  const [radius, setRadius] = useState(10);
+  const [radiusCenter, setRadiusCenter] = useState("00100");
+
   useEffect(() => {
     fetchZones();
+    // Load cities and regions from local data
+    setCities(getCities());
+    setRegions(getRegions());
   }, []);
+
+  const handleAddByCity = () => {
+    if (!selectedCity) return;
+    const codes = getPostalCodesByCity(selectedCity);
+    const newCodes = codes.join(", ");
+    setPostalCodeInput(prev => prev ? `${prev}, ${newCodes}` : newCodes);
+    setSelectedCity("");
+  };
+
+  const handleAddByRegion = () => {
+    if (!selectedRegion) return;
+    const codes = getPostalCodesByRegion(selectedRegion);
+    const newCodes = codes.join(", ");
+    setPostalCodeInput(prev => prev ? `${prev}, ${newCodes}` : newCodes);
+    setSelectedRegion("");
+  };
+
+  const handleAddAllFinland = () => {
+    const codes = getAllFinnishPostalCodes();
+    const newCodes = codes.join(", ");
+    setPostalCodeInput(prev => prev ? `${prev}, ${newCodes}` : newCodes);
+  };
+
+  const handleAddByRadius = () => {
+    if (!radiusCenter || !radius) return;
+    
+    // Get coordinates for center
+    const centerData = FINNISH_POSTAL_CODES[radiusCenter];
+    if (!centerData) {
+      alert("Center postal code not found");
+      return;
+    }
+
+    const codes = getPostalCodesByRadius(centerData.lat, centerData.lon, radius);
+    const newCodes = codes.join(", ");
+    setPostalCodeInput(prev => prev ? `${prev}, ${newCodes}` : newCodes);
+  };
 
   const fetchZones = async () => {
     try {
-      const res = await fetch(`${siteConfig.apiUrl}/api/v1/shipping/zones`);
+      const token = getToken();
+      const res = await fetch(`${siteConfig.apiUrl}/api/v1/shipping/zones`, {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
       if (res.ok) {
         const data = await res.json();
         setZones(data);
+      } else {
+        console.error("Failed to fetch zones:", res.status, res.statusText);
       }
     } catch (error) {
       console.error("Failed to fetch zones:", error);
@@ -48,8 +113,8 @@ export function ShippingZones({ locale }: { locale: string }) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Parse postal codes
-      const rawCodes = postalCodeInput.split(",").map(s => s.trim()).filter(Boolean);
+      // Parse postal codes: split by comma, newline, or space
+      const rawCodes = postalCodeInput.split(/[\n,\s]+/).map(s => s.trim()).filter(Boolean);
       const postalCodes: PostalCodeRange[] = rawCodes.map(code => {
         if (code.includes("-")) {
           const [start, end] = code.split("-");
@@ -70,20 +135,26 @@ export function ShippingZones({ locale }: { locale: string }) {
         : `${siteConfig.apiUrl}/api/v1/shipping/zones`;
       
       const method = currentZone.id ? "PATCH" : "POST";
+      const token = getToken();
 
       const res = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}` 
+        },
         body: JSON.stringify(payload),
       });
 
       if (res.ok) {
-        await fetchZones();
+        await fetchZones(); // Refresh the list immediately
         setIsEditing(false);
         setCurrentZone({});
         setPostalCodeInput("");
       } else {
-        alert("Failed to save zone");
+        const errorData = await res.json().catch(() => ({}));
+        console.error("Save failed:", errorData);
+        alert(`Failed to save zone: ${errorData.detail || res.statusText}`);
       }
     } catch (error) {
       console.error("Error saving zone:", error);
@@ -109,8 +180,12 @@ export function ShippingZones({ locale }: { locale: string }) {
     if (!confirm("Delete this zone?")) return;
     
     try {
+      const token = getToken();
       const res = await fetch(`${siteConfig.apiUrl}/api/v1/shipping/zones/${id}`, {
         method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
       });
       
       if (res.ok) {
@@ -158,18 +233,125 @@ export function ShippingZones({ locale }: { locale: string }) {
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
+              Smart Add Tools
+            </label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-md border border-slate-200 mb-4">
+              {/* Add by City */}
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-slate-600 uppercase">Add by City</label>
+                <div className="flex gap-2">
+                  <select
+                    value={selectedCity}
+                    onChange={(e) => setSelectedCity(e.target.value)}
+                    className="flex-1 rounded-md border border-slate-300 text-sm p-2"
+                  >
+                    <option value="">Select City...</option>
+                    {cities.map(city => (
+                      <option key={city} value={city}>{city}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={handleAddByCity}
+                    disabled={!selectedCity}
+                    className="bg-white border border-slate-300 px-3 py-1 rounded-md text-sm hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+
+              {/* Add by Region */}
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-slate-600 uppercase">Add by Region</label>
+                <div className="flex gap-2">
+                  <select
+                    value={selectedRegion}
+                    onChange={(e) => setSelectedRegion(e.target.value)}
+                    className="flex-1 rounded-md border border-slate-300 text-sm p-2"
+                  >
+                    <option value="">Select Region...</option>
+                    {regions.map(region => (
+                      <option key={region} value={region}>{region}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={handleAddByRegion}
+                    disabled={!selectedRegion}
+                    className="bg-white border border-slate-300 px-3 py-1 rounded-md text-sm hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+
+              {/* Add by Radius */}
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-slate-600 uppercase">Add by Radius (km)</label>
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="text"
+                    value={radiusCenter}
+                    onChange={(e) => setRadiusCenter(e.target.value)}
+                    placeholder="Center (00100)"
+                    className="w-24 rounded-md border border-slate-300 text-sm p-2"
+                  />
+                  <span className="text-slate-400">+</span>
+                  <input
+                    type="number"
+                    value={radius}
+                    onChange={(e) => setRadius(Number(e.target.value))}
+                    className="w-20 rounded-md border border-slate-300 text-sm p-2"
+                  />
+                  <span className="text-slate-500 text-sm">km</span>
+                  <button
+                    onClick={handleAddByRadius}
+                    disabled={!radiusCenter}
+                    className="bg-white border border-slate-300 px-3 py-1 rounded-md text-sm hover:bg-slate-50 disabled:opacity-50 ml-auto"
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+
+              {/* Add All Finland */}
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-slate-600 uppercase">Whole Country</label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleAddAllFinland}
+                    className="w-full bg-white border border-slate-300 px-3 py-2 rounded-md text-sm hover:bg-slate-50 text-left flex justify-between items-center"
+                  >
+                    <span>Add All Finland (00000-99999)</span>
+                    <Plus className="w-4 h-4 text-slate-400" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <label className="block text-sm font-medium text-slate-700 mb-1">
               Postal Codes
             </label>
             <div className="bg-slate-50 p-3 rounded-md border border-slate-200 mb-2 text-xs text-slate-600 flex gap-2">
               <Info className="w-4 h-4 flex-shrink-0" />
-              <p>Enter postal codes separated by commas. Use ranges with hyphens (e.g., 00100-00200).</p>
+              <div>
+                <p className="font-medium mb-1">Supported Formats:</p>
+                <ul className="list-disc list-inside space-y-0.5">
+                  <li>Single codes: <code className="bg-white px-1 rounded border">00100</code></li>
+                  <li>Ranges: <code className="bg-white px-1 rounded border">00100-00200</code></li>
+                  <li>Separators: Comma, space, or new line</li>
+                </ul>
+                <p className="mt-1 text-slate-500">You can paste a list directly from Excel or a text file.</p>
+              </div>
             </div>
             <textarea
               value={postalCodeInput}
               onChange={(e) => setPostalCodeInput(e.target.value)}
-              className="w-full rounded-md border border-slate-300 p-2 h-32 font-mono text-sm"
-              placeholder="00100, 00120, 00130-00150..."
+              className="w-full rounded-md border border-slate-300 p-2 h-48 font-mono text-sm"
+              placeholder={"00100\n00120\n00130-00150\n00200, 00210"}
             />
+            <div className="text-xs text-slate-500 mt-1 text-right">
+              {postalCodeInput.split(/[\n,\s]+/).filter(Boolean).length} entries detected
+            </div>
           </div>
 
           <div className="flex items-center gap-2 pt-4">
