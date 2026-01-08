@@ -23,13 +23,15 @@ export interface Product {
   category_slug?: string;
   category_slugs?: Record<string, string>;
   slug_translations?: Record<string, string>;
+  is_reserved?: boolean; // New field from backend
+  quantity?: number;
   brand?: string;
   status: ProductStatus;
   condition_type: ProductCondition;
   shipping_tier: ShippingTier;
-  regular_price?: number;
-  sale_price?: number;
-  purchase_price?: number;
+  regular_price?: number | string | null;
+  sale_price?: number | string;
+  purchase_price?: number | string;
   dimensions?: string;
   description?: Record<string, unknown>;
   files: StoredFile[];

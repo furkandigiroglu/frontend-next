@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, use } from "react";
 import { useCart } from "@/context/CartContext";
 import { siteConfig } from "@/lib/siteConfig";
 import { CheckCircle2, Loader2 } from "lucide-react";
 import Link from "next/link";
 
-export default function ConfirmationPage({ params }: { params: { checkoutId: string } }) {
+export default function ConfirmationPage({ params }: { params: Promise<{ checkoutId: string }> }) {
+  const { checkoutId } = use(params);
   const { clearCart } = useCart();
   const [loading, setLoading] = useState(true);
   const [orderData, setOrderData] = useState<any>(null);
@@ -15,7 +16,7 @@ export default function ConfirmationPage({ params }: { params: { checkoutId: str
   useEffect(() => {
     const fetchConfirmation = async () => {
       try {
-        const res = await fetch(`${siteConfig.apiUrl}/api/v1/checkout/confirmation/${params.checkoutId}`);
+        const res = await fetch(`${siteConfig.apiUrl}/api/v1/checkout/confirmation/${checkoutId}`);
         if (!res.ok) {
           throw new Error("Failed to load order confirmation");
         }
@@ -30,10 +31,10 @@ export default function ConfirmationPage({ params }: { params: { checkoutId: str
       }
     };
 
-    if (params.checkoutId) {
+    if (checkoutId) {
       fetchConfirmation();
     }
-  }, [params.checkoutId, clearCart]);
+  }, [checkoutId, clearCart]);
 
   if (loading) {
     return (
@@ -75,7 +76,7 @@ export default function ConfirmationPage({ params }: { params: { checkoutId: str
         
         <h1 className="text-3xl font-bold text-slate-900 mb-2">Thank you for your order!</h1>
         <p className="text-slate-500 mb-8">
-          Your order has been confirmed. We've sent a confirmation email to {orderData?.billing_address?.email}.
+          Your order has been confirmed. We've sent a confirmation email to {orderData?.customer_info?.email}.
         </p>
 
         <div className="bg-slate-50 rounded-xl p-6 text-left max-w-lg mx-auto">
@@ -86,7 +87,7 @@ export default function ConfirmationPage({ params }: { params: { checkoutId: str
           
           <div className="flex justify-between mb-2">
             <span className="text-slate-600">Total Amount</span>
-            <span className="font-medium text-slate-900">{(orderData?.order_amount / 100).toFixed(2)} €</span>
+            <span className="font-medium text-slate-900">{Number(orderData?.total_amount || 0).toFixed(2)} €</span>
           </div>
           
           <div className="flex justify-between">

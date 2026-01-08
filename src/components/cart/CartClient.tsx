@@ -2,13 +2,15 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Trash2, Minus, Plus, ArrowRight, Store, Truck } from "lucide-react";
+import { Trash2, Minus, Plus, ArrowRight, Store, Truck, AlertTriangle, XCircle } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { siteConfig } from "@/lib/siteConfig";
 import { cn } from "@/lib/utils";
 
 export function CartClient({ locale }: { locale: string }) {
+  const router = useRouter();
   const { items, removeItem, updateQuantity, cartTotal } = useCart();
   const [deliveryOption, setDeliveryOption] = useState<"pickup" | "home">("pickup");
   const [address, setAddress] = useState({
@@ -21,13 +23,18 @@ export function CartClient({ locale }: { locale: string }) {
     lastName: ""
   });
   const [loading, setLoading] = useState(false);
-  const [shippingCost, setShippingCost] = useState(0);
+  const [shippingCost, setShippingCost] = useState<number | null>(null);
   const [shippingError, setShippingError] = useState<string | null>(null);
+  const [shippingLoading, setShippingLoading] = useState(false);
 
   // Calculate shipping when postal code changes (if home delivery is selected)
   const calculateShipping = async (postalCode: string) => {
-    if (postalCode.length !== 5) return;
+    if (postalCode.length !== 5) {
+      setShippingCost(null);
+      return;
+    }
     
+    setShippingLoading(true);
     try {
       // Try to use the new shipping API
       const res = await fetch(`${siteConfig.apiUrl}/api/v1/shipping/calculate`, {
@@ -55,8 +62,12 @@ export function CartClient({ locale }: { locale: string }) {
       }
     } catch (error) {
       console.error("Shipping calculation error:", error);
-      // Fallback
-      setShippingCost(20);
+      setShippingError(locale === "fi" 
+        ? "Toimitushinnan laskenta epäonnistui. Yritä uudelleen."
+        : "Failed to calculate shipping. Please try again.");
+      setShippingCost(null);
+    } finally {
+      setShippingLoading(false);
     }
   };
 
@@ -71,7 +82,8 @@ export function CartClient({ locale }: { locale: string }) {
       if (address.postalCode.length === 5) {
         calculateShipping(address.postalCode);
       } else {
-        setShippingCost(20); // Default until calculated
+        setShippingCost(null); // Will show "enter postal code"
+        setShippingError(null);
       }
     }
   };
@@ -84,8 +96,9 @@ export function CartClient({ locale }: { locale: string }) {
     }
   };
 
-  const deliveryFee = shippingCost;
+  const deliveryFee = deliveryOption === "pickup" ? 0 : (shippingCost ?? 0);
   const total = cartTotal + deliveryFee;
+  const canCheckout = deliveryOption === "pickup" || (shippingCost !== null && !shippingError);
 
   const formatPrice = (price: number) =>
     price.toLocaleString(locale === "fi" ? "fi-FI" : "en-US", {
@@ -104,42 +117,12 @@ export function CartClient({ locale }: { locale: string }) {
       return;
     }
 
-    setLoading(true);
-    try {
-      const orderData = {
-        cartItems: items.map(i => i.product),
-        deliveryFee,
-        deliveryOption,
-        address,
-        str_adrs: deliveryOption === "home" ? `${address.street}, ${address.postalCode} ${address.city}` : "",
-        mytavarat: false
-      };
-
-      const response = await fetch(`${siteConfig.apiUrl}/api/create-order`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(orderData)
-      });
-
-      if (!response.ok) {
-        throw new Error("Order creation failed");
-      }
-
-      const data = await response.json();
-      
-      if (data.klarna_order_id) {
-        // Redirect to checkout page with order ID
-        window.location.href = `/${locale}/checkout?order_id=${data.klarna_order_id}`;
-      } else {
-        throw new Error("No order ID returned");
-      }
-
-    } catch (error) {
-      console.error("Checkout error:", error);
-      alert("Error creating order. Please try again.");
-    } finally {
-      setLoading(false);
-    }
+    // Redirect to checkout page where Klarna session will be created
+    const queryParams = new URLSearchParams();
+    if (address.postalCode) queryParams.set("postal_code", address.postalCode);
+    if (deliveryOption) queryParams.set("delivery_method", deliveryOption === "home" ? "delivery" : "pickup");
+    
+    router.push(`/${locale}/checkout?${queryParams.toString()}`);
   };
 
   if (items.length === 0) {
@@ -326,7 +309,26 @@ export function CartClient({ locale }: { locale: string }) {
                         {locale === "fi" ? "Toimitus" : "Delivery"}
                       </span>
                       <span className="mt-1 flex items-center text-sm text-slate-500">
-                        {formatPrice(shippingCost)}
+                        {shippingError ? (
+                          <span className="flex items-center gap-1 text-red-600">
+                            <AlertTriangle className="h-4 w-4" />
+                            {locale === "fi" ? "Ei saatavilla" : "Not available"}
+                          </span>
+                        ) : shippingLoading ? (
+                          <span className="text-slate-400">
+                            {locale === "fi" ? "Lasketaan..." : "Calculating..."}
+                          </span>
+                        ) : shippingCost === null ? (
+                          <span className="text-slate-400 text-xs">
+                            {locale === "fi" ? "Syötä postinumero" : "Enter postal code"}
+                          </span>
+                        ) : shippingCost === 0 ? (
+                          <span className="text-green-600 font-medium">
+                            {locale === "fi" ? "Ilmainen" : "Free"}
+                          </span>
+                        ) : (
+                          formatPrice(shippingCost)
+                        )}
                       </span>
                       <span className="mt-6 text-xs text-slate-500">
                         {locale === "fi" ? "Kotiinkuljetus" : "Home Delivery"}
@@ -415,10 +417,19 @@ export function CartClient({ locale }: { locale: string }) {
                   </div>
                 </div>
                 {shippingError && (
-                  <div className="rounded-md bg-red-50 p-4">
-                    <div className="flex">
-                      <div className="ml-3">
-                        <h3 className="text-sm font-medium text-red-800">{shippingError}</h3>
+                  <div className="rounded-md bg-red-50 border border-red-200 p-4">
+                    <div className="flex items-start gap-3">
+                      <XCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <h3 className="text-sm font-medium text-red-800">
+                          {locale === "fi" ? "Toimitus ei saatavilla" : "Delivery not available"}
+                        </h3>
+                        <p className="text-sm text-red-700 mt-1">{shippingError}</p>
+                        <p className="text-xs text-red-600 mt-2">
+                          {locale === "fi" 
+                            ? "Voit valita nouto-vaihtoehdon tai ottaa yhteyttä asiakaspalveluun."
+                            : "You can choose pickup option or contact customer service."}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -438,9 +449,17 @@ export function CartClient({ locale }: { locale: string }) {
                   {locale === "fi" ? "Toimitus" : "Delivery"}
                 </dt>
                 <dd className="text-sm font-medium text-slate-900">
-                  {deliveryFee === 0 
-                    ? (locale === "fi" ? "Ilmainen" : "Free") 
-                    : formatPrice(deliveryFee)}
+                  {deliveryOption === "pickup" ? (
+                    locale === "fi" ? "Ilmainen" : "Free"
+                  ) : shippingCost === null ? (
+                    <span className="text-slate-400">
+                      {locale === "fi" ? "Syötä postinumero" : "Enter postal code"}
+                    </span>
+                  ) : shippingCost === 0 ? (
+                    <span className="text-green-600">{locale === "fi" ? "Ilmainen" : "Free"}</span>
+                  ) : (
+                    formatPrice(shippingCost)
+                  )}
                 </dd>
               </div>
               <div className="flex items-center justify-between border-t border-slate-200 pt-4">
@@ -455,12 +474,14 @@ export function CartClient({ locale }: { locale: string }) {
               <button
                 type="button"
                 onClick={handleCheckout}
-                disabled={loading}
+                disabled={loading || !canCheckout}
                 className="w-full rounded-md border border-transparent bg-slate-900 px-4 py-3 text-base font-medium text-white shadow-sm hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 focus:ring-offset-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading 
                   ? (locale === "fi" ? "Käsitellään..." : "Processing...") 
-                  : (locale === "fi" ? "Siirry kassalle" : "Checkout")}
+                  : !canCheckout && deliveryOption === "home"
+                    ? (locale === "fi" ? "Syötä postinumero" : "Enter postal code")
+                    : (locale === "fi" ? "Siirry kassalle" : "Checkout")}
               </button>
             </div>
           </section>

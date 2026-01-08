@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, use } from "react";
 import { ShippingRules } from "@/components/dashboard/shipping/ShippingRules";
 import { ShippingZones } from "@/components/dashboard/shipping/ShippingZones";
 import { cn } from "@/lib/utils";
 import { Settings, Map } from "lucide-react";
 
-export default function ShippingPage({ params: { locale } }: { params: { locale: string } }) {
+export default function ShippingPage({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = use(params);
   const [activeTab, setActiveTab] = useState<"rules" | "zones">("rules");
 
   return (

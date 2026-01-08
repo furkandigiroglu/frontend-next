@@ -1,19 +1,22 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { Loader2 } from "lucide-react";
 
 export function RequireAuth({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
+  const params = useParams();
+  const locale = (params?.locale as string) || "fi";
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      router.push("/login");
+        // Fix: Login page is at /[locale]/login, not /[locale]/auth/login due to route group (auth)
+      router.push(`/${locale}/login`);
     }
-  }, [isLoading, isAuthenticated, router]);
+  }, [isLoading, isAuthenticated, router, locale]);
 
   if (isLoading) {
     return (

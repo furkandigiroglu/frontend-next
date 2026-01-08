@@ -48,7 +48,7 @@ export default function ProductsPage({
         <p className="text-slate-500">Hallitse varastoa ja tuotetietoja.</p>
       </div>
 
-      <ProductsTable products={products} locale={locale} />
+      <ProductsTable products={products} locale={locale} token={token || ""} />
     </div>
   );
 }

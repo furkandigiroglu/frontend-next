@@ -415,37 +415,88 @@ export function ShippingRules({ locale }: { locale: string }) {
             <div className="bg-purple-50 p-4 rounded-md border border-purple-100 space-y-4">
               <div className="flex items-start gap-2 text-purple-700 text-sm mb-2">
                 <Info className="w-4 h-4 mt-0.5" />
-                <p>Set specific prices for each zone. If a zone is not set, this rule won't apply to it.</p>
+                <p>Add zones and set their prices. Only zones with prices will be used.</p>
               </div>
-              <div className="space-y-3">
-                {zones.map((zone) => (
-                  <div key={zone.id} className="flex items-center justify-between bg-white p-2 rounded border border-purple-100">
-                    <span className="text-sm font-medium text-slate-700">{zone.name}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-slate-500">Price (€):</span>
-                      <input
-                        type="number"
-                        value={currentZonePrices[zone.id] ?? ""}
-                        onChange={(e) => {
-                          const val = e.target.value === "" ? undefined : Number(e.target.value);
-                          if (val === undefined) {
+              
+              {/* Selected Zone Prices */}
+              <div className="space-y-2">
+                {Object.entries(currentZonePrices).map(([zoneId, price]) => {
+                  const zone = zones.find(z => z.id === zoneId);
+                  if (!zone) return null;
+                  return (
+                    <div key={zoneId} className="flex items-center justify-between bg-white p-3 rounded border border-purple-100">
+                      <span className="text-sm font-medium text-slate-700">{zone.name}</span>
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-slate-500">€</span>
+                          <input
+                            type="number"
+                            value={price}
+                            onChange={(e) => {
+                              setCurrentZonePrices({ 
+                                ...currentZonePrices, 
+                                [zoneId]: Number(e.target.value) 
+                              });
+                            }}
+                            className="w-20 rounded-md border border-slate-300 p-1 text-right"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
                             const newPrices = { ...currentZonePrices };
-                            delete newPrices[zone.id];
+                            delete newPrices[zoneId];
                             setCurrentZonePrices(newPrices);
-                          } else {
-                            setCurrentZonePrices({ ...currentZonePrices, [zone.id]: val });
-                          }
-                        }}
-                        className="w-24 rounded-md border border-slate-300 p-1 text-right"
-                        placeholder="-"
-                      />
+                          }}
+                          className="text-red-500 hover:text-red-700 p-1"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
-                {zones.length === 0 && (
-                  <p className="text-sm text-slate-500 italic">No zones defined. Go to Shipping Zones to create one.</p>
-                )}
+                  );
+                })}
               </div>
+              
+              {/* Add Zone Dropdown */}
+              {zones.filter(z => !currentZonePrices.hasOwnProperty(z.id)).length > 0 && (
+                <div className="flex items-center gap-2">
+                  <select
+                    id="add-zone-select"
+                    className="flex-1 rounded-md border border-slate-300 p-2 text-sm"
+                    defaultValue=""
+                  >
+                    <option value="" disabled>Valitse alue lisättäväksi...</option>
+                    {zones
+                      .filter(z => !currentZonePrices.hasOwnProperty(z.id))
+                      .map(zone => (
+                        <option key={zone.id} value={zone.id}>{zone.name}</option>
+                      ))
+                    }
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const select = document.getElementById("add-zone-select") as HTMLSelectElement;
+                      if (select && select.value) {
+                        setCurrentZonePrices({
+                          ...currentZonePrices,
+                          [select.value]: 0
+                        });
+                        select.value = "";
+                      }
+                    }}
+                    className="bg-purple-600 text-white px-3 py-2 rounded-md text-sm hover:bg-purple-700 flex items-center gap-1"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Lisää
+                  </button>
+                </div>
+              )}
+              
+              {zones.length === 0 && (
+                <p className="text-sm text-slate-500 italic">No zones defined. Go to Shipping Zones to create one.</p>
+              )}
             </div>
           )}
 

@@ -3,6 +3,7 @@ import type { HomeContent } from "./home";
 import type { NavigationContent } from "./navigation";
 import type { DashboardContent } from "./dashboard";
 import type { ProductContent } from "./product-content";
+import type { AboutContent } from "./about";
 
 export type Dictionary = {
   navigation: NavigationContent;
@@ -10,4 +11,5 @@ export type Dictionary = {
   auth: AuthContent;
   dashboard: DashboardContent;
   product: ProductContent;
+  about: AboutContent;
 };

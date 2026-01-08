@@ -8,6 +8,7 @@ import type { NavigationContent } from "@/types/navigation";
 import type { Locale } from "@/i18n/config";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
+import { useWishlist } from "@/context/WishlistContext";
 import { LogOut } from "lucide-react";
 
 type NavigationBarProps = {
@@ -37,26 +38,26 @@ const IconButton = ({
     type="button"
     onClick={onClick}
     aria-label={label}
-    className="relative flex h-10 w-10 items-center justify-center rounded-full border border-[#d9cbb7] text-[#1f1b16] transition hover:bg-[#f3e7d6]"
+    className="relative flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full border border-[#d9cbb7] text-[#1f1b16] transition hover:bg-[#f3e7d6]"
   >
     {children}
   </button>
 );
 
 const Badge = ({ count }: { count: number }) => (
-  <span className="absolute -right-1 -top-1 inline-flex min-w-[18px] items-center justify-center rounded-full bg-[#d32f2f] px-1 text-[0.65rem] font-semibold text-white">
+  <span className="absolute -right-0.5 -top-0.5 sm:-right-1 sm:-top-1 inline-flex min-w-[16px] sm:min-w-[18px] items-center justify-center rounded-full bg-[#d32f2f] px-0.5 sm:px-1 text-[0.6rem] sm:text-[0.65rem] font-semibold text-white">
     {count}
   </span>
 );
 
 const HeartIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="h-5 w-5">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="h-4 w-4 sm:h-5 sm:w-5">
     <path d="M12 20s-6.5-4.35-8.5-8.5A4.5 4.5 0 0 1 8 5c1.6 0 3 .9 4 2.2C13 5.9 14.4 5 16 5a4.5 4.5 0 0 1 4.5 6.5C18.5 15.65 12 20 12 20Z" />
   </svg>
 );
 
 const CartIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="h-5 w-5">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="h-4 w-4 sm:h-5 sm:w-5">
     <path d="M4 5h2l1.5 10h11L20 7H7" strokeLinecap="round" strokeLinejoin="round" />
     <circle cx="10" cy="19" r="1.2" />
     <circle cx="17" cy="19" r="1.2" />
@@ -64,7 +65,7 @@ const CartIcon = () => (
 );
 
 const UserIcon = () => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="h-5 w-5">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="h-4 w-4 sm:h-5 sm:w-5">
     <circle cx="12" cy="8" r="3" />
     <path d="M5 19c1.5-3 4-4 7-4s5.5 1 7 4" strokeLinecap="round" />
   </svg>
@@ -82,10 +83,10 @@ export function NavigationBar({ locale, content, contactEmail, phone }: Navigati
   const router = useRouter();
   const { isAuthenticated, logout } = useAuth();
   const { cartCount } = useCart();
+  const { wishlistCount } = useWishlist();
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mobileSubmenus, setMobileSubmenus] = useState<Record<string, boolean>>({});
-  const [favoriteCount, setFavoriteCount] = useState(0);
 
   const withLocale = (href: string) => (href.startsWith("/") ? `/${locale}${href}` : href);
 
@@ -133,6 +134,13 @@ export function NavigationBar({ locale, content, contactEmail, phone }: Navigati
       { label: locale === "fi" ? "Kaikki Sohvat" : "All sofas", filterKey: "Kaikki Sohvat" },
     ];
 
+    const newFurnitureOptions = [
+      { label: locale === "fi" ? "TV-tasot" : "TV stands", filterKey: "TV-tasot" },
+      { label: locale === "fi" ? "Sohvapöydät" : "Coffee tables", filterKey: "Sohvapöydät" },
+      { label: locale === "fi" ? "Kaapit" : "Cabinets", filterKey: "Kaapit" },
+      { label: locale === "fi" ? "Kaikki" : "All", filterKey: "Uudet Huonekalut" },
+    ];
+
     const basePath = "/products";
 
     const withFilter = (filterKey?: string) =>
@@ -152,50 +160,30 @@ export function NavigationBar({ locale, content, contactEmail, phone }: Navigati
       },
       { label: localeStrings.beds, href: withFilter("Sängyt"), filterKey: "Sängyt" },
       { label: localeStrings.rugs, href: withFilter("Matot"), filterKey: "Matot" },
-      { label: localeStrings.newFurniture, href: withFilter("Uudet Huonekalut"), filterKey: "Uudet Huonekalut" },
+      { 
+        label: localeStrings.newFurniture, 
+        href: withFilter("Uudet Huonekalut"), 
+        filterKey: "Uudet Huonekalut",
+        submenu: newFurnitureOptions.map((option) => ({
+          label: option.label,
+          href: withFilter(option.filterKey),
+          filterKey: option.filterKey,
+        })),
+      },
       { label: localeStrings.others, href: withFilter("Muut"), filterKey: "Muut" },
-      { label: localeStrings.services, href: "/blogi" },
+      { label: localeStrings.services, href: "/services" },
     ];
   }, [locale, localeStrings]);
 
   useEffect(() => {
-    const syncCounts = () => {
-      if (typeof window === "undefined") {
-        return;
-      }
-      // Cart count is now handled by useCart hook
-
-      const favRaw = window.localStorage.getItem("fav");
-      if (favRaw) {
-        try {
-          const parsed = JSON.parse(favRaw);
-          if (Array.isArray(parsed)) {
-            setFavoriteCount(parsed.length);
-          } else if (typeof parsed === "object") {
-            setFavoriteCount(Object.keys(parsed).length);
-          } else {
-            setFavoriteCount(String(favRaw).split(",").filter(Boolean).length);
-          }
-        } catch {
-          setFavoriteCount(String(favRaw).split(",").filter(Boolean).length);
-        }
-      } else {
-        setFavoriteCount(0);
-      }
-    };
-
-    syncCounts();
-    window.addEventListener("storage", syncCounts);
-    return () => window.removeEventListener("storage", syncCounts);
-  }, []);
-
-  useEffect(() => {
     if (!mobileOpen) {
       document.body.style.removeProperty("overflow");
-      return undefined;
+      return;
     }
     document.body.style.setProperty("overflow", "hidden");
-    return () => document.body.style.removeProperty("overflow");
+    return () => {
+      document.body.style.removeProperty("overflow");
+    };
   }, [mobileOpen]);
 
   const handleNavigate = (href: string, filterKey?: string) => {
@@ -231,21 +219,21 @@ export function NavigationBar({ locale, content, contactEmail, phone }: Navigati
       </div>
 
       <div className="sticky top-0 z-50 border-b border-[#eadfcd] bg-white/95 backdrop-blur">
-        <div className="mx-auto w-full max-w-[84rem] px-4 py-3 md:px-8">
-          <div className="flex items-center justify-between rounded-[28px] border border-[#dccfbd] bg-[#fffdf7] px-4 py-3 shadow-[0_10px_30px_rgba(32,23,7,0.08)]">
-            <div className="flex flex-1 items-center gap-3">
+        <div className="mx-auto w-full max-w-[84rem] px-2 py-2 md:px-8 md:py-3">
+          <div className="flex items-center justify-between rounded-[28px] border border-[#dccfbd] bg-[#fffdf7] px-3 py-2 sm:px-4 sm:py-3 shadow-[0_10px_30px_rgba(32,23,7,0.08)]">
+            <div className="flex items-center gap-2 sm:gap-3">
               <button
                 type="button"
                 onClick={() => handleNavigate("/")}
-                className="flex items-center gap-3"
+                className="flex items-center gap-2 sm:gap-3"
               >
-                <Image src="/logo_5.png" alt="Ehankki logo" width={52} height={52} className="rounded-full border border-[#eadfcd] bg-white p-1" />
-                <div className="text-left">
-                  <span className="text-lg font-semibold text-[#1f1b16]">Ehankki</span>
-                  <p className="text-xs uppercase tracking-[0.3em] text-[#6a5c4b]">{content.brandTagline}</p>
+                <Image src="/logo_5.png" alt="Ehankki logo" width={40} height={40} className="rounded-full border border-[#eadfcd] bg-white p-1 sm:w-[52px] sm:h-[52px]" />
+                <div className="text-left flex flex-col justify-center">
+                  <span className="text-lg font-bold text-[#1f1b16] leading-none">Ehankki</span>
+                  <p className="text-[0.6rem] sm:text-xs uppercase tracking-[0.2em] sm:tracking-[0.3em] text-[#6a5c4b] leading-tight mt-0.5">{content.brandTagline}</p>
                 </div>
               </button>
-              <nav className="hidden gap-4 lg:flex">
+              <nav className="hidden gap-4 lg:flex ml-6">
                 {menuItems.map((item) => (
                   <div
                     key={item.label}
@@ -256,23 +244,25 @@ export function NavigationBar({ locale, content, contactEmail, phone }: Navigati
                     <button
                       type="button"
                       className="rounded-full px-3 py-1.5 text-sm font-medium text-[#3b3126] transition hover:bg-[#f2e4ce]"
-                      onClick={() => (item.submenu ? setActiveMenu(item.label === activeMenu ? null : item.label) : handleNavigate(item.href, item.filterKey))}
+                      onClick={() => handleNavigate(item.href, item.filterKey)}
                     >
                       {item.label}
                     </button>
                     {item.submenu && activeMenu === item.label && (
-                      <div className="absolute left-0 top-full z-20 mt-3 w-64 rounded-2xl border border-[#eadfcd] bg-white p-4 shadow-[0_20px_50px_rgba(24,20,12,0.15)]">
-                        <div className="flex flex-col gap-2">
-                          {item.submenu.map((sub) => (
-                            <button
-                              type="button"
-                              key={sub.label}
-                              className="rounded-xl px-3 py-2 text-left text-sm text-[#4a3d31] transition hover:bg-[#fff7ec]"
-                              onClick={() => handleNavigate(sub.href, sub.filterKey)}
-                            >
-                              {sub.label}
-                            </button>
-                          ))}
+                      <div className="absolute left-0 top-full z-20 w-64 pt-3">
+                        <div className="rounded-2xl border border-[#eadfcd] bg-white p-4 shadow-[0_20px_50px_rgba(24,20,12,0.15)]">
+                          <div className="flex flex-col gap-2">
+                            {item.submenu.map((sub) => (
+                              <button
+                                type="button"
+                                key={sub.label}
+                                className="rounded-xl px-3 py-2 text-left text-sm text-[#4a3d31] transition hover:bg-[#fff7ec]"
+                                onClick={() => handleNavigate(sub.href, sub.filterKey)}
+                              >
+                                {sub.label}
+                              </button>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     )}
@@ -282,9 +272,9 @@ export function NavigationBar({ locale, content, contactEmail, phone }: Navigati
             </div>
             <div className="hidden items-center gap-2 md:flex">
               <LanguageSwitcher currentLocale={locale} />
-              <IconButton label={localeStrings.favorites} onClick={() => handleNavigate("/fav") }>
+              <IconButton label={localeStrings.favorites} onClick={() => handleNavigate("/favorites") }>
                 <HeartIcon />
-                {favoriteCount > 0 && <Badge count={favoriteCount} />}
+                {wishlistCount > 0 && <Badge count={wishlistCount} />}
               </IconButton>
               <IconButton label={localeStrings.cart} onClick={() => handleNavigate("/cart") }>
                 <CartIcon />
@@ -300,8 +290,7 @@ export function NavigationBar({ locale, content, contactEmail, phone }: Navigati
                 </IconButton>
               )}
             </div>
-            <div className="flex items-center gap-2 md:hidden">
-              <LanguageSwitcher currentLocale={locale} />
+            <div className="flex items-center gap-3 md:hidden">
               <IconButton label={localeStrings.cart} onClick={() => handleNavigate("/cart") }>
                 <CartIcon />
                 {cartCount > 0 && <Badge count={cartCount} />}
@@ -310,7 +299,7 @@ export function NavigationBar({ locale, content, contactEmail, phone }: Navigati
                 type="button"
                 aria-label={localeStrings.menu}
                 onClick={() => setMobileOpen((prev) => !prev)}
-                className="flex h-11 w-11 items-center justify-center rounded-full border border-[#d7c3ab] text-[#1f1b16]"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-[#d7c3ab] bg-white text-[#1f1b16] shadow-sm transition active:scale-95"
               >
                 <MenuIcon open={mobileOpen} />
               </button>

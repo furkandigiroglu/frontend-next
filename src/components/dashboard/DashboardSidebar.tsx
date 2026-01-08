@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Package, FileText, BarChart3, LogOut, Settings, Truck } from "lucide-react";
+import { LayoutDashboard, Package, FileText, BarChart3, LogOut, Settings, Truck, CalendarClock } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import type { Locale } from "@/i18n/config";
 
@@ -24,6 +24,7 @@ export function DashboardSidebar({ locale }: DashboardSidebarProps) {
   const menuItems = [
     { label: "Yleiskatsaus", href: "/dashboard", icon: LayoutDashboard },
     { label: "Tuotteet", href: "/dashboard/products", icon: Package },
+    { label: "Varaukset", href: "/dashboard/reservations", icon: CalendarClock },
     { label: "Laskut", href: "/dashboard/invoices", icon: FileText },
     { label: "Toimitus", href: "/dashboard/shipping", icon: Truck },
     { label: "Tilastot", href: "/dashboard/stats", icon: BarChart3 },

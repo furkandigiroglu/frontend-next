@@ -139,9 +139,9 @@ const dictionary: Dictionary = {
       title: "",
       description: "",
       stats: [
-        { value: "4.8/5", label: "Seller trust" },
-        { value: "12,300+", label: "Pieces saved" },
-        { value: "-38%", label: "Carbon footprint" },
+        { value: "5.0/5", label: "Seller trust" },
+        { value: "3050+", label: "Pieces saved" },
+        { value: "-85%", label: "Carbon footprint" },
       ],
       ctas: [
         { label: "Explore collections", href: "/collections" },
@@ -193,8 +193,8 @@ const dictionary: Dictionary = {
       },
       {
         icon: "quality",
-        title: "High quality and reliable service",
-        description: "We offer high quality and reliable service.",
+        title: "Reliable and Sustainable",
+        description: "Every product is inspected, and every delivery is handled responsibly. Our priority is ensuring a worry-free experience for you.",
       },
       {
         icon: "support",
@@ -465,6 +465,31 @@ const dictionary: Dictionary = {
     messages: {
       noDescription: "No description available.",
     },
+  },
+  about: {
+    title: "About Us",
+    subtitle: "Ehankki Furniture – Sustainable and Affordable Furniture Store",
+    description: "Ehankki Furniture is a Finnish furniture store offering both new and high-quality used furniture at affordable prices. Our goal is to combine sustainability, ecology, and budget-friendliness so that every customer finds the right solution for their home interior.",
+    features: {
+      quality: {
+        title: "Quality and sustainable furniture",
+        description: "We offer carefully selected new and used furniture that is both stylish and durable.",
+      },
+      ecological: {
+        title: "Ecological choice",
+        description: "Buying recycled and refurbished furniture helps reduce waste and save natural resources.",
+      },
+      delivery: {
+        title: "Fast delivery",
+        description: "We deliver furniture quickly and flexibly in the Uusimaa region.",
+      },
+      customer: {
+        title: "Customer satisfaction first",
+        description: "We offer personal service and ensure that every customer gets exactly the product they need.",
+      },
+    },
+    extra: "You will find a wide selection of sofas, beds, dining tables, storage furniture, and other home interior products. For used furniture, we ensure that every product is refurbished, cleaned, and ready for use.",
+    recycling: "We also offer a recycling service – you can sell or donate your good condition furniture to us so they get a new life in another home!",
   },
 };
 

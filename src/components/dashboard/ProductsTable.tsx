@@ -4,27 +4,64 @@ import { useState } from "react";
 import Image from "next/image";
 import { Edit, Trash2, Eye, EyeOff, Search, Plus } from "lucide-react";
 import type { Product } from "@/types/product";
+import { deleteProduct } from "@/lib/products";
 import Link from "next/link";
 
 type ProductsTableProps = {
   products: Product[];
   locale: string;
+  token: string;
 };
 
-export function ProductsTable({ products, locale }: ProductsTableProps) {
+export function ProductsTable({ products, locale, token }: ProductsTableProps) {
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "sold" | "draft" | "archived">("all");
+  const [allProducts, setAllProducts] = useState(products);
   const [filteredProducts, setFilteredProducts] = useState(products);
+
+  // Re-run filter when search or status changes
+  const applyFilters = (term: string, status: string, source = allProducts) => {
+    const lower = term.toLowerCase();
+    const filtered = source.filter((p) => {
+      const matchesSearch = 
+        p.name.toLowerCase().includes(lower) ||
+        p.category?.toLowerCase().includes(lower) ||
+        p.id.toLowerCase().includes(lower);
+      
+      const matchesStatus = status === "all" || p.status === status;
+
+      return matchesSearch && matchesStatus;
+    });
+    setFilteredProducts(filtered);
+  };
 
   const handleSearch = (term: string) => {
     setSearchTerm(term);
-    const lower = term.toLowerCase();
-    const filtered = products.filter(
-      (p) =>
-        p.name.toLowerCase().includes(lower) ||
-        p.category?.toLowerCase().includes(lower) ||
-        p.id.toLowerCase().includes(lower)
-    );
-    setFilteredProducts(filtered);
+    applyFilters(term, statusFilter);
+  };
+
+  const handleStatusChange = (status: "all" | "active" | "sold" | "draft" | "archived") => {
+    setStatusFilter(status);
+    applyFilters(searchTerm, status);
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!token) return;
+    if (!window.confirm(`Haluatko varmasti poistaa tuotteen "${name}"?`)) return;
+
+    try {
+      await deleteProduct(id, token);
+      
+      // Update local state
+      const newAllProducts = allProducts.filter(p => p.id !== id);
+      setAllProducts(newAllProducts);
+      
+      // Re-apply filters to current view
+      applyFilters(searchTerm, statusFilter, newAllProducts);
+    } catch (error) {
+      console.error(error);
+      alert("Tuotteen poistaminen epäonnistui.");
+    }
   };
 
   const getCoverImage = (product: Product) => {
@@ -37,17 +74,32 @@ export function ProductsTable({ products, locale }: ProductsTableProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="relative w-72">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Hae tuotteita..."
-            value={searchTerm}
-            onChange={(e) => handleSearch(e.target.value)}
-            className="w-full rounded-lg border border-slate-200 py-2 pl-10 pr-4 text-sm focus:border-slate-900 focus:outline-none"
-          />
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2 flex-1">
+          <div className="relative w-72">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Hae tuotteita..."
+              value={searchTerm}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 py-2 pl-10 pr-4 text-sm focus:border-slate-900 focus:outline-none"
+            />
+          </div>
+          
+          <select
+            value={statusFilter}
+            onChange={(e) => handleStatusChange(e.target.value as any)}
+            className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-900 focus:outline-none"
+          >
+            <option value="all">Kaikki</option>
+            <option value="active">Aktiiviset</option>
+            <option value="sold">Myydyt</option>
+            <option value="draft">Luonnokset</option>
+            <option value="archived">Arkistoidut</option>
+          </select>
         </div>
+
         <Link
           href={`/${locale}/dashboard/products/new`}
           className="flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
@@ -63,6 +115,7 @@ export function ProductsTable({ products, locale }: ProductsTableProps) {
             <tr>
               <th className="px-6 py-3 font-medium">Tuote</th>
               <th className="px-6 py-3 font-medium">Kategoria</th>
+              <th className="px-6 py-3 font-medium">Stok</th>
               <th className="px-6 py-3 font-medium">Hinta</th>
               <th className="px-6 py-3 font-medium">Tila</th>
               <th className="px-6 py-3 font-medium text-right">Toiminnot</th>
@@ -96,6 +149,9 @@ export function ProductsTable({ products, locale }: ProductsTableProps) {
                     </div>
                   </td>
                   <td className="px-6 py-4 text-slate-600">{product.category || "-"}</td>
+                  <td className="px-6 py-4 text-slate-600 font-mono">
+                    {product.quantity !== undefined ? product.quantity : 1}
+                  </td>
                   <td className="px-6 py-4 font-medium text-slate-900">
                     {product.sale_price ? `${product.sale_price} €` : "-"}
                     {product.regular_price && (
@@ -125,7 +181,11 @@ export function ProductsTable({ products, locale }: ProductsTableProps) {
                       >
                         <Edit className="h-4 w-4" />
                       </Link>
-                      <button className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600">
+                      <button 
+                        onClick={() => handleDelete(product.id, product.name)}
+                        type="button"
+                        className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                      >
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>

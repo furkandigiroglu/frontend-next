@@ -12,8 +12,8 @@ export const siteConfig = {
     "ev dekorasyonu"
   ],
   ogImage: "https://ehankki.fi/og-furniture.jpg",
-  contactEmail: "destek@ehankki.fi",
-  phone: "+358 41 123 00 20",
+  contactEmail: "info@ehankki.fi",
+  phone: "+358 41 312 4969",
   apiUrl: process.env.NEXT_PUBLIC_API_URL || "http://185.96.163.183:8000",
 };
 

@@ -3,14 +3,17 @@
 import { useState, useEffect } from "react";
 import { CategoryManager } from "./CategoryManager";
 import { ConfigManager } from "./ConfigManager";
+import { ShippingRules } from "./shipping/ShippingRules";
+import { ShippingZones } from "./shipping/ShippingZones";
 import { Category, ConfigItem } from "@/types/settings";
 import { useAuth } from "@/context/AuthContext";
 import { fetchCategories, fetchConfigs } from "@/lib/settings";
 import { Loader2 } from "lucide-react";
 
-export function SettingsTabs() {
+export function SettingsTabs({ locale }: { locale: string }) {
   const { token } = useAuth();
-  const [activeTab, setActiveTab] = useState<"categories" | "configs">("categories");
+  const [activeTab, setActiveTab] = useState<"categories" | "configs" | "shipping">("categories");
+  const [shippingSubTab, setShippingSubTab] = useState<"rules" | "zones">("rules");
   const [categories, setCategories] = useState<Category[]>([]);
   const [configs, setConfigs] = useState<ConfigItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,13 +71,55 @@ export function SettingsTabs() {
           >
             Genel Ayarlar (Config)
           </button>
+          <button
+            onClick={() => setActiveTab("shipping")}
+            className={`
+              whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium
+              ${activeTab === "shipping"
+                ? "border-slate-900 text-slate-900"
+                : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700"}
+            `}
+          >
+            Kargo / Toimitus
+          </button>
         </nav>
       </div>
 
-      {activeTab === "categories" ? (
+      {activeTab === "categories" && (
         <CategoryManager initialCategories={categories} />
-      ) : (
+      )}
+      
+      {activeTab === "configs" && (
         <ConfigManager initialConfigs={configs} />
+      )}
+
+      {activeTab === "shipping" && (
+        <div className="space-y-6">
+             <div className="flex space-x-4 mb-6">
+                <button 
+                  onClick={() => setShippingSubTab("rules")}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    shippingSubTab === "rules" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  Toimitussäännöt (Rules)
+                </button>
+                <button 
+                  onClick={() => setShippingSubTab("zones")}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    shippingSubTab === "zones" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  Toimitusalueet (Zones)
+                </button>
+             </div>
+             
+             {shippingSubTab === "rules" ? (
+               <ShippingRules locale={locale} />
+             ) : (
+               <ShippingZones locale={locale} />
+             )}
+        </div>
       )}
     </div>
   );

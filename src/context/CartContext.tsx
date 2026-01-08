@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useMemo } from "react";
 import { Product } from "@/types/product";
 
 export interface CartItem {
@@ -40,9 +40,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("cart", JSON.stringify(items));
   }, [items]);
 
-  const addItem = (product: Product) => {
+  const addItem = useCallback((product: Product) => {
     setItems((prev) => {
       const existing = prev.find((item) => item.product.id === product.id);
+      const currentQty = existing ? existing.quantity : 0;
+      // Default to 1 if quantity is missing (though backend sends it now)
+      const stock = product.quantity !== undefined ? product.quantity : 1;
+
+      if (currentQty + 1 > stock) {
+        // Simple alert for now, can be improved with toast
+        // alert("Not enough stock available."); 
+        return prev;
+      }
+
       if (existing) {
         return prev.map((item) =>
           item.product.id === product.id
@@ -52,27 +62,39 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
       return [...prev, { product, quantity: 1 }];
     });
-  };
+  }, []);
 
-  const removeItem = (productId: string) => {
+  const removeItem = useCallback((productId: string) => {
     setItems((prev) => prev.filter((item) => item.product.id !== productId));
-  };
+  }, []);
 
-  const updateQuantity = (productId: string, quantity: number) => {
-    if (quantity < 1) {
-      removeItem(productId);
-      return;
-    }
-    setItems((prev) =>
-      prev.map((item) =>
-        item.product.id === productId ? { ...item, quantity } : item
-      )
-    );
-  };
+  const updateQuantity = useCallback((productId: string, quantity: number) => {
+    setItems((prev) => {
+      const item = prev.find((i) => i.product.id === productId);
+      if (!item) return prev;
+      
+      const stock = item.product.quantity !== undefined ? item.product.quantity : 1;
 
-  const clearCart = () => {
+      if (quantity > stock) {
+         // Cap at max stock
+         return prev.map((i) =>
+            i.product.id === productId ? { ...i, quantity: stock } : i
+         );
+      }
+
+      if (quantity < 1) {
+        return prev.filter((i) => i.product.id !== productId);
+      }
+
+      return prev.map((i) =>
+        i.product.id === productId ? { ...i, quantity } : i
+      );
+    });
+  }, []);
+
+  const clearCart = useCallback(() => {
     setItems([]);
-  };
+  }, []);
 
   const cartCount = items.reduce((acc, item) => acc + item.quantity, 0);
   
@@ -81,18 +103,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
     return acc + price * item.quantity;
   }, 0);
 
+  const value = useMemo(() => ({
+    items,
+    addItem,
+    removeItem,
+    updateQuantity,
+    clearCart,
+    cartCount,
+    cartTotal,
+  }), [items, addItem, removeItem, updateQuantity, clearCart, cartCount, cartTotal]);
+
   return (
-    <CartContext.Provider
-      value={{
-        items,
-        addItem,
-        removeItem,
-        updateQuantity,
-        clearCart,
-        cartCount,
-        cartTotal,
-      }}
-    >
+    <CartContext.Provider value={value}>
       {children}
     </CartContext.Provider>
   );

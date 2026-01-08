@@ -1,8 +1,8 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { getToken, removeToken, setToken, login as apiLogin } from "@/lib/auth";
-import { useRouter } from "next/navigation";
+import { getToken, removeToken, setToken, login as apiLogin, getProfile } from "@/lib/auth";
+import { useRouter, useParams } from "next/navigation";
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -19,15 +19,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [token, setTokenState] = useState<string | null>(null);
   const router = useRouter();
+  const params = useParams();
+  const locale = (params?.locale as string) || "fi";
 
   useEffect(() => {
-    // Check for token on mount
-    const storedToken = getToken();
-    if (storedToken) {
-      setTokenState(storedToken);
-      setIsAuthenticated(true);
+    async function initAuth() {
+      const storedToken = getToken();
+      if (storedToken) {
+        try {
+          // Verify token is still valid by fetching profile
+          await getProfile(storedToken);
+          setTokenState(storedToken);
+          setIsAuthenticated(true);
+        } catch (err) {
+          console.warn("Invalid token found, logging out...", err);
+          removeToken();
+          setTokenState(null);
+          setIsAuthenticated(false);
+        }
+      }
+      setIsLoading(false);
     }
-    setIsLoading(false);
+    
+    initAuth();
   }, []);
 
   const login = async (username: string, password: string) => {
@@ -49,7 +63,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     removeToken();
     setTokenState(null);
     setIsAuthenticated(false);
-    router.push("/");
+    // Redirect to login page with correct locale
+    // Fix: Login page is at /[locale]/login, not /[locale]/auth/login due to route group (auth)
+    router.push(`/${locale}/login`);
     router.refresh();
   };
 

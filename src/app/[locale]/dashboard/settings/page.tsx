@@ -15,7 +15,7 @@ export default async function SettingsPage({
         <p className="text-sm text-slate-500">Kategorileri ve genel sistem ayarlarını yönetin.</p>
       </div>
       
-      <SettingsTabs />
+      <SettingsTabs locale={locale} />
     </div>
   );
 }

@@ -81,13 +81,13 @@ export function ProductGallery({ files, productName }: ProductGalleryProps) {
       </div>
 
       {/* Main Image */}
-      <div className="aspect-square w-full">
+      <div className="aspect-[4/3] w-full bg-slate-50 rounded-lg">
         <div className="relative h-full w-full overflow-hidden rounded-lg">
           <Image
             src={getImageUrl(files[selectedIndex])}
             alt={productName}
             fill
-            className="h-full w-full object-cover object-center"
+            className="h-full w-full object-contain object-center"
             priority
           />
         </div>

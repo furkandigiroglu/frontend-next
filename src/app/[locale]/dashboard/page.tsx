@@ -1,4 +1,5 @@
 import { BarChart3, Package, ShoppingCart, Users } from "lucide-react";
+import { AdminDashboardStats } from "@/components/admin/AdminDashboardStats";
 
 const stats = [
   { label: "Kokonaismyynti", value: "12,450 €", change: "+12%", icon: BarChart3 },
@@ -13,6 +14,11 @@ export default function DashboardPage() {
       <div>
         <h2 className="text-2xl font-bold text-slate-900">Yleiskatsaus</h2>
         <p className="text-slate-500">Tervetuloa takaisin! Tässä on päivän tilanne.</p>
+      </div>
+
+      <div className="mb-8">
+        <h3 className="mb-4 text-lg font-semibold text-slate-700">Fatura Durumu (Canlı)</h3>
+        <AdminDashboardStats />
       </div>
 
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">

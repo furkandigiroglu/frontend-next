@@ -139,9 +139,9 @@ const dictionary: Dictionary = {
       title: "",
       description: "",
       stats: [
-        { value: "4.8/5", label: "Myyjäluottamus" },
-        { value: "12 300+", label: "Pelastettua kalustetta" },
-        { value: "-38%", label: "Hiilijalanjälki" },
+        { value: "5.0/5", label: "Myyjäluottamus" },
+        { value: "3050+", label: "Pelastettua kalustetta" },
+        { value: "-85%", label: "Hiilijalanjälki" },
       ],
       ctas: [
         { label: "Tutustu valikoimaan", href: "/collections" },
@@ -193,8 +193,8 @@ const dictionary: Dictionary = {
       },
       {
         icon: "quality",
-        title: "Laadukas ja luotettava palvelu",
-        description: "Tarjoamme korkealaatuista ja luotettavaa palvelua.",
+        title: "Luotettava ja kestävä",
+        description: "Jokainen tuote tarkistetaan ja jokainen toimitus hoidetaan vastuullisesti. Meille tärkeintä on, että voit asioida huoletta.",
       },
       {
         icon: "support",
@@ -308,7 +308,7 @@ const dictionary: Dictionary = {
     ],
     reviewsIntro: {
       eyebrow: "Arvostelut",
-      description: "Google-arvosana 4.9/5 ja satoja toimitettuja projekteja ympäri Suomea.",
+      description: "Google-arvosana 5.0/5 ja satoja toimitettuja projekteja ympäri Suomea.",
     },
     testimonials: [
       {
@@ -464,6 +464,31 @@ const dictionary: Dictionary = {
     messages: {
       noDescription: "Ei kuvausta saatavilla.",
     },
+  },
+  about: {
+    title: "Meistä",
+    subtitle: "Ehankki Kaluste – Kestävä ja Edullinen Huonekalukauppa",
+    description: "Ehankki Kaluste on suomalainen huonekaluliike, joka tarjoaa sekä uusia että käytettyjä huonekaluja edulliseen hintaan. Valikoimaamme kuuluu muun muassa sängyt, TV-tasot, sohvapöydät, ruokapöydät ja säilytyskalusteet, ja laajennamme tuotevalikoimaamme jatkuvasti asiakkaidemme tarpeiden mukaan. Tavoitteenamme on yhdistää kestävä kehitys, ekologisuus ja budjettiystävällisyys, jotta jokainen asiakas löytää itselleen sopivan ja luotettavan sekä kestävän ratkaisun kodin sisustukseen. Tarjoamme huolellisesti valittuja tuotteita, olipa kyseessä uusi tai second hand -huonekalu.",
+    features: {
+      quality: {
+        title: "Luotettava ja kestävä",
+        description: "Tarjoamme sekä uusia että käytettyjä huonekaluja ja laajennamme valikoimaamme jatkuvasti. Jokainen tuote valitaan huolellisesti, jotta voimme tarjota kestäviä ratkaisuja ja luotettavaa palvelua.",
+      },
+      ecological: {
+        title: "Ekologinen valinta",
+        description: "Kierrätettyjen ja kunnostettujen huonekalujen ostaminen auttaa vähentämään jätettä ja säästämään luonnonvaroja.",
+      },
+      delivery: {
+        title: "Nopea toimitus",
+        description: "Toimitamme huonekalut Uudenmaan alueella nopeasti ja joustavasti.",
+      },
+      customer: {
+        title: "Asiakastyytyväisyys etusijalla",
+        description: "Tarjoamme henkilökohtaista palvelua ja varmistamme, että jokainen asiakas saa juuri tarvitsemansa tuotteen.",
+      },
+    },
+    extra: "Meiltä löydät laajan valikoiman sekä uusia että käytettyjä huonekaluja, kuten sohvia, sänkyjä, TV-tasoja, sohvapöytiä, ruokapöytiä, kenkäkaappeja, säilytyskalusteita sekä mattoja ja muita kodin sisustustuotteita. Käytettyjen huonekalujen osalta varmistamme, että jokainen tuote on kunnostettu, puhdistettu ja valmis käyttöön.",
+    recycling: "Tarjoamme myös kierrätyspalvelun – voit myydä tai lahjoittaa meille hyväkuntoiset huonekalusi, jotta ne saavat uuden elämän toisessa kodissa.",
   },
 };
 

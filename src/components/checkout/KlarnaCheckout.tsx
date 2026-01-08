@@ -1,20 +1,31 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { useCart } from "@/context/CartContext";
 import { siteConfig } from "@/lib/siteConfig";
 import { Loader2 } from "lucide-react";
 
 export function KlarnaCheckout() {
+  const searchParams = useSearchParams();
   const { items, cartTotal } = useCart();
   const [loading, setLoading] = useState(false);
   const [htmlSnippet, setHtmlSnippet] = useState<string | null>(null);
-  const [postalCode, setPostalCode] = useState("");
-  const [deliveryMethod, setDeliveryMethod] = useState<"delivery" | "pickup">("delivery");
+  const [postalCode, setPostalCode] = useState(searchParams.get("postal_code") || "");
+  const [deliveryMethod, setDeliveryMethod] = useState<"delivery" | "pickup">((searchParams.get("delivery_method") as "delivery" | "pickup") || "delivery");
   const [shippingCost, setShippingCost] = useState<number | null>(null);
   const [grandTotal, setGrandTotal] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const initialized = useRef(false);
+
+  useEffect(() => {
+    // Auto-start session if we have postal code from URL
+    if (!initialized.current && postalCode && deliveryMethod === "delivery") {
+      initialized.current = true;
+      handleCreateSession();
+    }
+  }, []);
 
   const handleCreateSession = async () => {
     if (!postalCode && deliveryMethod === "delivery") {
@@ -44,8 +55,17 @@ export function KlarnaCheckout() {
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.detail || "Virhe kassalle siirtymisessä");
+        let errorMessage = "Virhe kassalle siirtymisessä";
+        try {
+          const data = await res.json();
+          errorMessage = data.detail || errorMessage;
+        } catch (e) {
+          // If response is not JSON (e.g. 500 Traceback), read as text
+          const text = await res.text();
+          console.error("Non-JSON error response:", text);
+          errorMessage = "Palvelinvirhe (500). Yritä myöhemmin uudelleen.";
+        }
+        throw new Error(errorMessage);
       }
 
       const data = await res.json();
@@ -85,6 +105,15 @@ export function KlarnaCheckout() {
       <div className="text-center py-12">
         <h2 className="text-xl font-medium text-slate-900">Ostoskori on tyhjä</h2>
         <p className="text-slate-500 mt-2">Lisää tuotteita jatkaaksesi kassalle.</p>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20">
+        <Loader2 className="w-10 h-10 animate-spin text-slate-900 mb-4" />
+        <p className="text-slate-500">Valmistellaan kassaa...</p>
       </div>
     );
   }

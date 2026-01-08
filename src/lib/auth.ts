@@ -31,7 +31,14 @@ export async function login(username: string, password: string): Promise<LoginRe
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(errorText || "Login failed");
+      let errorMessage = "Login failed";
+      try {
+        const jsonError = JSON.parse(errorText);
+        errorMessage = jsonError.detail || jsonError.message || errorMessage;
+      } catch {
+        errorMessage = errorText || errorMessage;
+      }
+      throw new Error(errorMessage);
     }
 
     const data = await response.json();

@@ -13,6 +13,7 @@ import type { Dictionary } from "@/types/dictionary";
 import { useAuth } from "@/context/AuthContext";
 import { uploadFile } from "@/lib/storage";
 import { fetchCategories, fetchConfigs } from "@/lib/settings";
+import { compressImage } from "@/lib/imageUtils";
 
 type ProductFormProps = {
   initialData?: Product;
@@ -82,11 +83,12 @@ export function ProductForm({ initialData, locale, dict }: ProductFormProps) {
   // Form State
   const [name, setName] = useState(initialData?.name || "");
   const [sku, setSku] = useState(initialData?.sku || "");
-  const [categoryId, setCategoryId] = useState(initialData?.category || "");
+  const [categoryId, setCategoryId] = useState(initialData?.category_id || initialData?.category || "");
   const [brand, setBrand] = useState(initialData?.brand || "");
   const [status, setStatus] = useState<ProductStatus>(initialData?.status || "draft");
   const [condition, setCondition] = useState<ProductCondition>(initialData?.condition_type || "used");
   const [shipping, setShipping] = useState<ShippingTier>(initialData?.shipping_tier || "standard");
+  const [quantity, setQuantity] = useState(initialData?.quantity?.toString() || "1");
   const [regularPrice, setRegularPrice] = useState(initialData?.regular_price?.toString() || "");
   const [salePrice, setSalePrice] = useState(initialData?.sale_price?.toString() || "");
   const [purchasePrice, setPurchasePrice] = useState(initialData?.purchase_price?.toString() || "");
@@ -123,7 +125,17 @@ export function ProductForm({ initialData, locale, dict }: ProductFormProps) {
   const [uploading, setUploading] = useState(false);
 
   // Helper to generate UUID for uploads
-  const [tempId] = useState(() => initialData?.id || crypto.randomUUID());
+  const [tempId] = useState(() => {
+    if (initialData?.id) return initialData.id;
+    // Fallback for environments where crypto.randomUUID is not available
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+       return crypto.randomUUID();
+    }
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  });
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -224,13 +236,33 @@ export function ProductForm({ initialData, locale, dict }: ProductFormProps) {
     
     try {
       const newFiles = Array.from(e.target.files);
+
+      // Check for empty/placeholder files (common with cloud drives)
+      const invalidFiles = newFiles.filter(f => f.size === 0);
+      if (invalidFiles.length > 0) {
+        throw new Error(locale === "fi" 
+          ? "Yksi tai useampi tiedosto on tyhjä (0 tavua). Tämä voi johtua siitä, että tiedosto on pilvessä eikä sitä ole vielä ladattu tietokoneellesi. Varmista, että tiedosto on offline-tilassa."
+          : "One or more files are empty (0 bytes). This might be because the file is in the cloud and not yet downloaded to your computer. Please ensure the file is available offline."
+        );
+      }
+
       const uploadedFiles = await Promise.all(
-        newFiles.map(file => uploadFile(file, "products", tempId, token))
+        newFiles.map(async (file) => {
+          try {
+             // Compress on client side before upload
+             // 1600px width, 90% quality -> Great balance (~500KB)
+             const compressed = await compressImage(file, 1600, 0.9);
+             return uploadFile(compressed, "products", tempId, token);
+          } catch (err) {
+             console.error("Compression failed, uploading original:", err);
+             return uploadFile(file, "products", tempId, token);
+          }
+        })
       );
       setFiles(prev => [...prev, ...uploadedFiles]);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setError("Resim yüklenirken hata oluştu.");
+      setError(err.message || (locale === "fi" ? "Resim yüklenirken hata oluştu." : "Error uploading image."));
     } finally {
       setUploading(false);
     }
@@ -292,8 +324,11 @@ export function ProductForm({ initialData, locale, dict }: ProductFormProps) {
         status,
         condition_type: condition,
         shipping_tier: shipping,
-        regular_price: regularPrice ? parseFloat(regularPrice) : null,
-        sale_price: salePrice ? parseFloat(salePrice) : null,
+        quantity: parseInt(quantity || "1", 10),
+        // Backend expects 'sale_price' to be the ACTIVE price.
+        // 'regular_price' is optional and used for strikethrough (original price).
+        regular_price: (salePrice && regularPrice) ? parseFloat(regularPrice) : null,
+        sale_price: salePrice ? parseFloat(salePrice) : (regularPrice ? parseFloat(regularPrice) : 0),
         purchase_price: purchasePrice ? parseFloat(purchasePrice) : null,
         dimensions: dimensions || null,
         description: descObj,
@@ -319,7 +354,20 @@ export function ProductForm({ initialData, locale, dict }: ProductFormProps) {
 
       if (!response.ok) {
         const errData = await response.json();
-        throw new Error(errData.detail || "Kaydetme başarısız");
+        console.error("Save Error Details:", errData);
+        
+        let errorMessage = "Kaydetme başarısız";
+        if (errData.detail) {
+           if (Array.isArray(errData.detail)) {
+             errorMessage = errData.detail.map((e: any) => `${e.loc?.join(".") || 'Field'}: ${e.msg}`).join(", ");
+           } else if (typeof errData.detail === 'object') {
+             errorMessage = JSON.stringify(errData.detail);
+           } else {
+             errorMessage = String(errData.detail);
+           }
+        }
+        
+        throw new Error(errorMessage);
       }
 
       router.push(`/${locale}/dashboard/products`);
@@ -744,6 +792,17 @@ export function ProductForm({ initialData, locale, dict }: ProductFormProps) {
                     placeholder={dict.dashboard.productForm.placeholders.sku}
                   />
                 </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Stok (Määrä)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={quantity}
+                    onChange={(e) => setQuantity(e.target.value)}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-slate-900 focus:outline-none"
+                  />
+                </div>
               </div>
             </div>
 
@@ -756,10 +815,11 @@ export function ProductForm({ initialData, locale, dict }: ProductFormProps) {
               
               <div className="grid grid-cols-1 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">{dict.dashboard.productForm.fields.regularPrice}</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">{dict.dashboard.productForm.fields.regularPrice} <span className="text-red-500">*</span></label>
                   <div className="relative">
                     <input
                       type="number"
+                      required
                       step="0.01"
                       value={regularPrice}
                       onChange={(e) => setRegularPrice(e.target.value)}
@@ -787,10 +847,14 @@ export function ProductForm({ initialData, locale, dict }: ProductFormProps) {
                 </div>
 
                 <div className="pt-4 border-t border-slate-100">
-                  <label className="block text-sm font-medium text-slate-700 mb-1">{dict.dashboard.productForm.fields.purchasePrice}</label>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">
+                    {dict.dashboard.productForm.fields.purchasePrice} 
+                    {condition === "used" && <span className="text-red-500">*</span>}
+                  </label>
                   <div className="relative">
                     <input
                       type="number"
+                      required={condition === "used"}
                       step="0.01"
                       value={purchasePrice}
                       onChange={(e) => setPurchasePrice(e.target.value)}

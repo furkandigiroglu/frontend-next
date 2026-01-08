@@ -127,8 +127,8 @@ export function Hero({ content, panels, features, contactEmail, phone, createHre
           </div>
         )}
 
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-          <article className="group relative min-h-[360px] overflow-hidden rounded-[36px] border border-[#eadfcd] bg-[#120d07] shadow-[0_35px_80px_rgba(15,10,5,0.45)] sm:min-h-[480px]">
+        <div className="hidden lg:grid lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] lg:gap-4">
+          <article className="group relative min-h-[480px] overflow-hidden rounded-[36px] border border-[#eadfcd] bg-[#120d07] shadow-[0_35px_80px_rgba(15,10,5,0.45)]">
             <div
               className="absolute inset-0 bg-cover bg-center"
               style={{
@@ -136,7 +136,7 @@ export function Hero({ content, panels, features, contactEmail, phone, createHre
               }}
             />
             <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/0 to-[#14100c]/30" />
-            <div className="relative flex h-full flex-col justify-between p-6 text-white sm:p-10">
+            <div className="relative flex h-full flex-col justify-between p-10 text-white">
               <div className="space-y-4">
                 <div className="inline-flex flex-wrap items-center gap-3 text-[0.65rem] uppercase tracking-[0.35em] text-white/70">
                   {primaryPanel.tag && (
@@ -150,8 +150,8 @@ export function Hero({ content, panels, features, contactEmail, phone, createHre
                     </span>
                   )}
                 </div>
-                <h2 className="text-3xl font-semibold leading-tight sm:text-4xl">{primaryPanel.title}</h2>
-                <p className="text-sm text-white/80 sm:text-base">
+                <h2 className="text-4xl font-semibold leading-tight">{primaryPanel.title}</h2>
+                <p className="text-base text-white/80">
                   {primaryPanel.description ?? content.description}
                 </p>
               </div>
@@ -174,13 +174,13 @@ export function Hero({ content, panels, features, contactEmail, phone, createHre
             </div>
           </article>
 
-          <div className="flex snap-x gap-4 overflow-x-auto pb-2 lg:flex-col lg:overflow-visible lg:pb-0">
+          <div className="flex flex-col gap-4">
             {secondaryPanels.map((panel, index) => {
               const panelImage = resolveMediaUrl(panel.image) ?? primaryImage;
               return (
                 <article
                   key={`${panel.title}-${index}`}
-                  className="relative min-h-[220px] w-[260px] flex-shrink-0 snap-center overflow-hidden rounded-[28px] border border-[#eadfcd] bg-[#120d07] shadow-[0_20px_60px_rgba(15,10,5,0.35)] lg:w-auto lg:flex-shrink lg:min-h-[240px]"
+                  className="relative flex-1 min-h-[240px] overflow-hidden rounded-[28px] border border-[#eadfcd] bg-[#120d07] shadow-[0_20px_60px_rgba(15,10,5,0.35)]"
                 >
                   <div
                     className="absolute inset-0 bg-cover bg-center"
@@ -220,7 +220,77 @@ export function Hero({ content, panels, features, contactEmail, phone, createHre
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {/* Mobile Layout - Wide Aspect Ratio Slider */}
+        <div className="lg:hidden -mx-6 sm:mx-0">
+          <div className="flex snap-x snap-mandatory gap-0 overflow-x-auto scrollbar-hide">
+            {[primaryPanel, ...secondaryPanels].map((panel, index) => {
+              const panelImage = resolveMediaUrl(panel.image) ?? primaryImage;
+              return (
+                <article
+                  key={`mob-slide-${index}`}
+                  className="relative h-[280px] w-full flex-none snap-center overflow-hidden"
+                >
+                  <img
+                    src={panelImage}
+                    alt={panel.title}
+                    className="absolute inset-0 h-full w-full object-contain"
+                  />
+                  {/* Subtle gradient at bottom for text visibility */}
+                  <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-white/90 via-white/50 to-transparent" />
+                  
+                  <div className="relative flex h-full flex-col justify-end p-6 text-[#1f1b16] text-center items-center">
+                    <div className="space-y-4">
+                      <h2 className="text-2xl font-bold leading-tight">
+                        {panel.title}
+                      </h2>
+                      
+                      {panel.description && (
+                         <p className="text-sm text-[#4a3d31] line-clamp-2 font-medium">
+                          {panel.description}
+                        </p>
+                      )}
+
+                      <div className="flex flex-wrap justify-center gap-2 pt-1">
+                        {index === 0 ? (
+                          content.ctas.map((cta, idx) => (
+                            <Link
+                              key={cta.label}
+                              href={createHref(cta.href)}
+                              className={`inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-[0.6rem] font-bold uppercase tracking-widest transition shadow-md ${
+                                idx === 0
+                                  ? "bg-[#1f1b16] text-white hover:bg-black"
+                                  : "bg-white text-[#1f1b16] border border-[#1f1b16]/10 hover:bg-gray-50"
+                              }`}
+                            >
+                              {cta.label}
+                            </Link>
+                          ))
+                        ) : (
+                          <Link
+                            href={createHref(panel.href ?? "/")}
+                            className="inline-flex items-center gap-1.5 rounded-full bg-[#1f1b16] px-5 py-1.5 text-[0.6rem] font-bold uppercase tracking-widest text-white transition hover:bg-black shadow-md"
+                          >
+                            {panel.ctaLabel ?? "Tutustu"}
+                          </Link>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+          
+           {/* Simple Paginator */}
+           <div className="flex justify-center gap-1.5 -mt-4 relative z-10 pb-2">
+             {[primaryPanel, ...secondaryPanels].map((_, idx) => (
+                <div key={idx} className="h-1 w-1 rounded-full bg-[#1f1b16]/20" />
+             ))}
+           </div>
+        </div>
+
+        {/* Stats Section - Hidden on mobile for faster access to products */}
+        <div className="hidden sm:grid gap-3 grid-cols-2 md:grid-cols-2 lg:grid-cols-3">
           {content.stats.map((stat) => (
             <div
               key={stat.label}
@@ -232,13 +302,14 @@ export function Hero({ content, panels, features, contactEmail, phone, createHre
           ))}
         </div>
 
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Features Section - Horizontal Scroll on Mobile */}
+        <div className="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 snap-x [scrollbar-width:none] sm:grid sm:gap-6 sm:pb-0 sm:mx-0 sm:px-0 sm:grid-cols-2 lg:grid-cols-4">
           {features?.map((feature) => {
             const styles = getFeatureStyles(feature.icon);
             return (
               <div
                 key={feature.title}
-                className={`flex flex-col gap-3 rounded-2xl border p-6 ${styles.container}`}
+                className={`flex-none w-[280px] sm:w-auto snap-center flex flex-col gap-3 rounded-2xl border p-5 sm:p-6 ${styles.container}`}
               >
                 <div className={styles.icon}>{getIcon(feature.icon)}</div>
                 <div>

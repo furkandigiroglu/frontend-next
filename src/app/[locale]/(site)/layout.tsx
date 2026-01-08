@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { NavigationBar } from "@/components/navigation/NavigationBar";
+import { Footer } from "@/components/navigation/Footer";
 import { siteConfig } from "@/lib/siteConfig";
 import { type Locale } from "@/i18n/config";
 import { getDictionary } from "@/i18n/getDictionary";
@@ -28,18 +29,7 @@ export default async function SiteLayout({
         />
         <div className="flex-1">{children}</div>
         <WhatsAppFloat />
-        <footer className="mt-12 border-t border-white/30 bg-[#1f1b16] px-6 py-10 text-sm text-white md:px-10">
-          <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="text-lg font-semibold">{siteConfig.name}</p>
-              <p className="text-white/70">{siteConfig.description}</p>
-            </div>
-            <div className="flex flex-col gap-1 text-white/80">
-              <a href={`mailto:${siteConfig.contactEmail}`}>{siteConfig.contactEmail}</a>
-              <a href={`tel:${phoneHref}`}>{siteConfig.phone}</a>
-            </div>
-          </div>
-        </footer>
+        <Footer locale={locale} />
       </div>
     </div>
   );

@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import { CTASection } from "@/components/sections/CTASection";
 import { FeatureGrid } from "@/components/sections/FeatureGrid";
 import { Hero } from "@/components/sections/Hero";
 import { ProductRail } from "@/components/sections/ProductRail";
@@ -7,6 +6,7 @@ import { ShowcaseGrid } from "@/components/sections/ShowcaseGrid";
 import { Testimonials } from "@/components/sections/Testimonials";
 import { siteConfig } from "@/lib/siteConfig";
 import { fetchHomeProducts } from "@/lib/products";
+import { fetchReviews } from "@/lib/reviews";
 import { getDictionary } from "@/i18n/getDictionary";
 import { locales, type Locale } from "@/i18n/config";
 
@@ -21,6 +21,8 @@ export default async function LocaleHome({
   }
   const dictionary = await getDictionary(locale);
   const products = await fetchHomeProducts();
+  const reviews = await fetchReviews();
+  
   const {
     hero,
     heroPanels,
@@ -31,7 +33,6 @@ export default async function LocaleHome({
     showcaseIntro,
     showcaseCollections,
     testimonials,
-    cta,
   } = dictionary.home;
 
   const createHref = (path: string) => {
@@ -70,8 +71,7 @@ export default async function LocaleHome({
           );
         })}
 
-        <Testimonials items={testimonials} />
-        <CTASection content={cta} createHref={createHref} />
+        <Testimonials items={reviews} />
       </div>
     </main>
   );
