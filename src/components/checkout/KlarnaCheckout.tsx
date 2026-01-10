@@ -16,20 +16,29 @@ export function KlarnaCheckout() {
   const [shippingCost, setShippingCost] = useState<number | null>(null);
   const [grandTotal, setGrandTotal] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const initialized = useRef(false);
 
   useEffect(() => {
-    // Auto-start session if we have postal code from URL
-    if (!initialized.current && postalCode && deliveryMethod === "delivery") {
-      initialized.current = true;
-      handleCreateSession();
+    // Auto-start session if we have postal code from URL OR if pickup is selected
+    if (!initialized.current) {
+      if (deliveryMethod === "pickup" || (postalCode && deliveryMethod === "delivery")) {
+        initialized.current = true;
+        handleCreateSession();
+      }
     }
   }, []);
 
   const handleCreateSession = async () => {
     if (!postalCode && deliveryMethod === "delivery") {
       setError("Syötä postinumero");
+      return;
+    }
+
+    // Validate cart items
+    if (!items || items.length === 0) {
+      setError("Ostoskori on tyhjä");
       return;
     }
 
@@ -40,11 +49,13 @@ export function KlarnaCheckout() {
       const payload = {
         products: items.map(item => ({
           product_id: item.product.id,
-          quantity: item.quantity
+          quantity: item.quantity || 1
         })),
-        postal_code: postalCode,
+        postal_code: deliveryMethod === "pickup" ? "00100" : postalCode,
         delivery_method: deliveryMethod
       };
+
+      console.log("Creating Klarna session with payload:", payload);
 
       const res = await fetch(`${siteConfig.apiUrl}/api/v1/checkout/create-session`, {
         method: "POST",
@@ -54,11 +65,23 @@ export function KlarnaCheckout() {
         body: JSON.stringify(payload),
       });
 
+      console.log("Response status:", res.status);
+
       if (!res.ok) {
         let errorMessage = "Virhe kassalle siirtymisessä";
         try {
           const data = await res.json();
-          errorMessage = data.detail || errorMessage;
+          console.error("Error response data:", JSON.stringify(data, null, 2));
+          
+          // Handle array of errors (FastAPI validation errors)
+          if (Array.isArray(data.detail)) {
+            const errors = data.detail.map((err: any) => 
+              `${err.loc?.join(' -> ') || 'unknown'}: ${err.msg}`
+            ).join(', ');
+            errorMessage = errors;
+          } else if (typeof data.detail === 'string') {
+            errorMessage = data.detail;
+          }
         } catch (e) {
           // If response is not JSON (e.g. 500 Traceback), read as text
           const text = await res.text();
@@ -72,9 +95,13 @@ export function KlarnaCheckout() {
       setHtmlSnippet(data.html_snippet);
       setShippingCost(data.shipping_cost);
       setGrandTotal(data.total_amount);
+      if (data.shipping_warning) {
+        setWarning(data.shipping_warning);
+      }
     } catch (err: any) {
-      console.error(err);
-      setError(err.message || "Jokin meni pieleen");
+      console.error("Checkout error:", err);
+      const errorMessage = err?.message || err?.toString() || "Jokin meni pieleen";
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -121,6 +148,18 @@ export function KlarnaCheckout() {
   if (htmlSnippet) {
     return (
       <div className="max-w-4xl mx-auto p-4">
+        {warning && (
+          <div className="mb-6 rounded-md bg-yellow-50 p-4 border border-yellow-200">
+            <div className="flex">
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-yellow-800">Tärkeä tiedote toimituksesta</h3>
+                <div className="mt-2 text-sm text-yellow-700 whitespace-pre-line">
+                  <p>{warning}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="mb-6 bg-slate-50 p-4 rounded-lg border border-slate-200">
             <h3 className="font-medium text-slate-900 mb-3">Tilauksen yhteenveto</h3>
             <div className="flex justify-between text-sm mb-2">
@@ -146,35 +185,37 @@ export function KlarnaCheckout() {
       <h2 className="text-2xl font-semibold mb-6">Kassa</h2>
       
       <div className="space-y-6">
-        {/* Delivery Method Selection */}
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">Toimitustapa</label>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <button
-              onClick={() => setDeliveryMethod("delivery")}
-              className={`p-4 rounded-lg border-2 text-left transition-all ${
-                deliveryMethod === "delivery"
-                  ? "border-slate-900 bg-slate-50"
-                  : "border-slate-200 hover:border-slate-300"
-              }`}
-            >
-              <span className="block font-medium">Kotiinkuljetus</span>
-              <span className="text-sm text-slate-500">Toimituskulut lasketaan postinumeron perusteella</span>
-            </button>
-            <button
-              onClick={() => setDeliveryMethod("pickup")}
-              className={`p-4 rounded-lg border-2 text-left transition-all ${
-                deliveryMethod === "pickup"
-                  ? "border-slate-900 bg-slate-50"
-                  : "border-slate-200 hover:border-slate-300"
-              }`}
-            >
-              <span className="block font-medium">Nouto</span>
-              <span className="text-sm text-slate-500">Ilmainen</span>
-              <span className="block text-xs text-slate-400 mt-1">Niittyläntie 3, 00620 Helsinki</span>
-            </button>
+        {/* Delivery Method Selection - only show if not already chosen from cart */}
+        {!searchParams.get("delivery_method") && (
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">Toimitustapa</label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <button
+                onClick={() => setDeliveryMethod("delivery")}
+                className={`p-4 rounded-lg border-2 text-left transition-all ${
+                  deliveryMethod === "delivery"
+                    ? "border-slate-900 bg-slate-50"
+                    : "border-slate-200 hover:border-slate-300"
+                }`}
+              >
+                <span className="block font-medium">Kotiinkuljetus</span>
+                <span className="text-sm text-slate-500">Toimituskulut lasketaan postinumeron perusteella</span>
+              </button>
+              <button
+                onClick={() => setDeliveryMethod("pickup")}
+                className={`p-4 rounded-lg border-2 text-left transition-all ${
+                  deliveryMethod === "pickup"
+                    ? "border-slate-900 bg-slate-50"
+                    : "border-slate-200 hover:border-slate-300"
+                }`}
+              >
+                <span className="block font-medium">Nouto</span>
+                <span className="text-sm text-slate-500">Ilmainen</span>
+                <span className="block text-xs text-slate-400 mt-1">Niittyläntie 3, 00620 Helsinki</span>
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Postal Code Input (Only for Delivery) */}
         {deliveryMethod === "delivery" && (
@@ -209,20 +250,23 @@ export function KlarnaCheckout() {
           </div>
         )}
 
-        <button
-          onClick={handleCreateSession}
-          disabled={loading}
-          className="w-full bg-slate-900 text-white py-3 rounded-lg font-medium hover:bg-slate-800 disabled:opacity-50 flex justify-center items-center gap-2"
-        >
-          {loading ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Ladataan...
-            </>
-          ) : (
-            "Siirry maksamaan"
-          )}
-        </button>
+        {/* Only show button if delivery method not pre-selected from cart */}
+        {!searchParams.get("delivery_method") && (
+          <button
+            onClick={handleCreateSession}
+            disabled={loading}
+            className="w-full bg-slate-900 text-white py-3 rounded-lg font-medium hover:bg-slate-800 disabled:opacity-50 flex justify-center items-center gap-2"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Ladataan...
+              </>
+            ) : (
+              "Siirry maksamaan"
+            )}
+          </button>
+        )}
       </div>
     </div>
   );

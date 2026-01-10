@@ -117,7 +117,14 @@ export default async function LocaleHome({
               <p className="max-w-2xl text-base text-slate-600">{reviewsIntro.description}</p>
             )}
           </div>
-          <Testimonials items={testimonials} />
+          <Testimonials items={testimonials.map((t, i) => ({
+            id: `testimonial-${i}`,
+            author_name: `${t.author} - ${t.role}`,
+            review_text: t.quote,
+            rating: 5,
+            relative_time: "recently",
+            source: "customer"
+          }))} />
         </div>
         <CTASection content={cta} createHref={createHref} />
       </div>

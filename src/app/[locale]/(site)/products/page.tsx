@@ -52,7 +52,7 @@ export default async function ProductsPage({ params, searchParams }: ProductsPag
   let rawProducts = [];
   
   if (activeFilter === 'sale' || activeFilter === 'Alennetut tuotteet') {
-     const saleParams = { ...queryParams, limit: "100" };
+     const saleParams: Record<string, any> = { ...queryParams, limit: "100" };
      delete saleParams.filter;
      rawProducts = await fetchProducts(saleParams);
      rawProducts = rawProducts.filter(p => {
@@ -62,7 +62,7 @@ export default async function ProductsPage({ params, searchParams }: ProductsPag
      filterTitle = locale === 'fi' ? 'Alennetut tuotteet' : 'Discounted Products';
 
   } else if (activeFilter === 'favorites' || activeFilter === 'Suosikki valinnat') {
-     const favParams = { ...queryParams, limit: "100" };
+     const favParams: Record<string, any> = { ...queryParams, limit: "100" };
      delete favParams.filter;
      rawProducts = await fetchProducts(favParams);
      rawProducts = rawProducts.filter(p => {
@@ -71,7 +71,7 @@ export default async function ProductsPage({ params, searchParams }: ProductsPag
      filterTitle = locale === 'fi' ? 'Suosikki valinnat' : 'Favorite Picks';
 
   } else if (activeFilter === 'Uudet Huonekalut' || activeFilter === 'New Furniture') {
-     const newParams = { ...queryParams, condition: 'new' };
+     const newParams: Record<string, any> = { ...queryParams, condition: 'new' };
      delete newParams.filter;
      rawProducts = await fetchProducts(newParams);
      filterTitle = locale === 'fi' ? 'Uudet Huonekalut' : 'New Furniture';
@@ -138,8 +138,8 @@ export default async function ProductsPage({ params, searchParams }: ProductsPag
 
   return (
     <div className="mx-auto w-full max-w-[84rem] px-4 py-8 md:px-8">
-      <div className="mb-8 flex flex-col gap-4">
-        <h1 className="text-3xl font-bold text-[#1f1b16]">{filterTitle}</h1>
+      <h1 className="text-3xl font-bold text-[#1f1b16] mb-4">{filterTitle}</h1>
+      <div className="sticky top-0 z-20 bg-[#f2ecdf] py-4 mb-4 -mx-4 px-4 md:-mx-8 md:px-8">
         <CategoryPills categories={categories} activeFilter={activeFilter} locale={locale} />
       </div>
 
@@ -150,7 +150,7 @@ export default async function ProductsPage({ params, searchParams }: ProductsPag
           </p>
         </div>
       ) : (
-        <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid gap-3 grid-cols-2 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {products.map((product) => (
             <ProductCard key={product.id} product={product} locale={locale} />
           ))}

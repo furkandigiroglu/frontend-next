@@ -298,6 +298,7 @@ const dictionary: Dictionary = {
       },
       {
         title: "Modulaarinen oleskelu",
+        description: "Suunnittele unelmiesi sohvakokonaisuus moduuleista.",
         metric: "Toimitus 3 viikossa",
       },
       {
@@ -308,6 +309,7 @@ const dictionary: Dictionary = {
     ],
     reviewsIntro: {
       eyebrow: "Arvostelut",
+      title: "Asiakkaidemme kokemuksia",
       description: "Google-arvosana 5.0/5 ja satoja toimitettuja projekteja ympäri Suomea.",
     },
     testimonials: [
@@ -457,7 +459,7 @@ const dictionary: Dictionary = {
       shipping: "Toimitus",
     },
     valueProps: {
-      delivery: "Nopea toimitus koko Suomeen",
+      delivery: "Nopea toimitus",
       checked: "Tarkistettu ja puhdistettu",
       returns: "14 päivän palautusoikeus",
     },

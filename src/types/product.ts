@@ -36,6 +36,7 @@ export interface Product {
   description?: Record<string, unknown>;
   files: StoredFile[];
   metadata: Record<string, unknown>;
+  badge?: string; // Optional badge for marketing sections
   created_at: string;
   updated_at: string;
 }

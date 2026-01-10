@@ -1,5 +1,10 @@
 import { AdminCreateInvoice } from "@/components/admin/AdminCreateInvoice";
 
-export default function CreateInvoicePage({ params: { locale } }: { params: { locale: string } }) {
+export default async function CreateInvoicePage({ 
+  params 
+}: { 
+  params: Promise<{ locale: string }> 
+}) {
+  const { locale } = await params;
   return <AdminCreateInvoice locale={locale} />;
 }

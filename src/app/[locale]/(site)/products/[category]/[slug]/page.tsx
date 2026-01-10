@@ -28,9 +28,10 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
   }
 
   const title = `${product.name} | ${siteConfig.name}`;
-  const description = typeof product.description === 'string' 
-    ? product.description.slice(0, 160) 
-    : (product.description?.[locale] || product.description?.['fi'] || "").slice(0, 160);
+  const descriptionText = typeof product.description === 'string' 
+    ? product.description 
+    : (product.description?.[locale] || product.description?.['fi'] || "");
+  const description = String(descriptionText).slice(0, 160);
   
   const images = product.files?.[0] 
     ? [`http://185.96.163.183:8000/api/v1/storage/${product.files[0].namespace}/${product.files[0].entity_id}/${product.files[0].filename}`]

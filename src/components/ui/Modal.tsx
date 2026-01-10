@@ -33,8 +33,8 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
         className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity" 
         onClick={onClose}
       />
-      <div className="relative w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-xl transition-all">
-        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+      <div className="relative w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden rounded-2xl bg-white shadow-xl transition-all">
+        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 flex-shrink-0">
           <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
           <button
             onClick={onClose}
@@ -43,7 +43,7 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
             <X className="h-5 w-5" />
           </button>
         </div>
-        <div className="px-6 py-6">
+        <div className="px-6 py-6 overflow-y-auto">
           {children}
         </div>
       </div>

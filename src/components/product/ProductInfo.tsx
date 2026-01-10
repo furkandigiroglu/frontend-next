@@ -57,7 +57,8 @@ export function ProductInfo({ product, locale, dict, categoryName }: ProductInfo
 
   const whatsappPhone = siteConfig.phone.replace(/[^0-9]/g, "");
   // Ensure we handle URL construction safely on client side
-  const currentUrl = typeof window !== 'undefined' ? window.location.href : `${siteConfig.url}/${locale}/products/${product.category_slug || 'general'}/${product.slug || product.id}`;
+  const slug = product.slug_translations?.[locale] || product.slug_translations?.['fi'] || product.id;
+  const currentUrl = typeof window !== 'undefined' ? window.location.href : `${siteConfig.url}/${locale}/products/${product.category_slug || 'general'}/${slug}`;
   const whatsappText = locale === 'fi' 
       ? `Hei, olen kiinnostunut tästä tuotteesta: ${product.name}\n${currentUrl}`
       : `Hello, I am interested in this product: ${product.name}\n${currentUrl}`;
@@ -233,12 +234,6 @@ export function ProductInfo({ product, locale, dict, categoryName }: ProductInfo
           <ShieldCheck className="h-5 w-5 text-slate-400" />
           <span className="text-sm text-slate-600">
             {dict.product.valueProps.checked}
-          </span>
-        </div>
-        <div className="flex items-center gap-3">
-          <RefreshCw className="h-5 w-5 text-slate-400" />
-          <span className="text-sm text-slate-600">
-            {dict.product.valueProps.returns}
           </span>
         </div>
       </div>

@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { createInvoice } from "@/lib/api/admin-invoices";
 import { fetchAdminProducts } from "@/lib/products";
-import { ArrowLeft, Save, Plus, Trash2, Calendar, User, FileText, CreditCard, Search } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, Calendar, User, FileText, CreditCard, Search, ShoppingCart, Package } from "lucide-react";
 import Link from "next/link";
+import type { Product as ProductType } from "@/types/product";
+import { Modal } from "@/components/ui/Modal";
 
 interface LineItem {
   description: string;
@@ -16,21 +18,16 @@ interface LineItem {
   discount_percent: number;
 }
 
-interface Product {
-  id: string;
-  name: string;
-  sale_price: number;
-  price: number;
-  vat_rate?: number;
-}
-
 export function AdminCreateInvoice({ locale }: { locale: string }) {
   const router = useRouter();
   const { token } = useAuth();
+  const [isPending, startTransition] = useTransition();
   const [loading, setLoading] = useState(false);
+  const [products, setProducts] = useState<ProductType[]>([]);
   const [error, setError] = useState("");
-  const [products, setProducts] = useState<Product[]>([]);
-  const [productSearch, setProductSearch] = useState("");
+  const [productModalOpen, setProductModalOpen] = useState(false);
+  const [currentLineIndex, setCurrentLineIndex] = useState<number | null>(null);
+  const [productSearchFilter, setProductSearchFilter] = useState("");
 
   const [formData, setFormData] = useState({
     billing_name: "",
@@ -47,6 +44,7 @@ export function AdminCreateInvoice({ locale }: { locale: string }) {
     due_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], 
     payment_method: "cash",
     language: "fi",
+    notes: "",
   });
 
   const [lineItems, setLineItems] = useState<LineItem[]>([
@@ -62,7 +60,7 @@ export function AdminCreateInvoice({ locale }: { locale: string }) {
     }
   }, [token]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     if (name.startsWith('address.')) {
       const field = name.split('.')[1];
@@ -102,9 +100,9 @@ export function AdminCreateInvoice({ locale }: { locale: string }) {
       setLineItems(newItems);
   };
   
-  const handleProductSelect = (index: number, product: Product) => {
-      const gross = product.sale_price || product.price || 0;
-      const vat = product.vat_rate || 25.5; // Default if missing
+  const handleProductSelect = (index: number, product: ProductType) => {
+      const gross = Number(product.sale_price) || Number(product.regular_price) || 0;
+      const vat = (product.metadata?.vat_rate as number) || 25.5;
       const net = gross / (1 + (vat / 100));
 
       const newItems = [...lineItems];
@@ -118,7 +116,16 @@ export function AdminCreateInvoice({ locale }: { locale: string }) {
 
       const newGross = [...grossPrices];
       newGross[index] = gross;
-      setGrossPrices(newGross);
+      setGrossPrices(newGross);      
+      setProductModalOpen(false);
+      setCurrentLineIndex(null);
+      setProductSearchFilter("");
+  };
+
+  const openProductModal = (index: number) => {
+    setCurrentLineIndex(index);
+    setProductModalOpen(true);
+    setProductSearchFilter("");
   };
 
   const addLineItem = () => {
@@ -155,10 +162,15 @@ export function AdminCreateInvoice({ locale }: { locale: string }) {
         ...formData,
         line_items: lineItems,
         billing_email: formData.billing_email || null, // convert empty string to null if needed by backend
+        notes: formData.notes || null,
       };
 
       await createInvoice(token, payload);
-      router.push(`/${locale}/dashboard/invoices`);
+      
+      // Use startTransition to prevent React performance measurement error
+      startTransition(() => {
+        router.push(`/${locale}/dashboard/invoices`);
+      });
     } catch (err: any) {
       console.error(err);
       setError(err.message || "Failed to create invoice");
@@ -349,6 +361,21 @@ export function AdminCreateInvoice({ locale }: { locale: string }) {
                 </select>
               </div>
             </div>
+
+            {/* Notes Section */}
+            <div className="mt-4">
+              <label className="block text-xs font-medium text-slate-500 mb-1">
+                {locale === 'fi' ? 'Lisätiedot / Huomiot' : 'Notes / Additional Info'}
+              </label>
+              <textarea
+                name="notes"
+                value={formData.notes}
+                onChange={handleInputChange}
+                placeholder={locale === 'fi' ? 'Lisää huomioita tai lisätietoja...' : 'Add notes or additional information...'}
+                rows={3}
+                className="w-full rounded-md border border-slate-200 p-2 text-sm focus:border-slate-900 focus:outline-none resize-none"
+              />
+            </div>
           </div>
         </div>
 
@@ -367,72 +394,72 @@ export function AdminCreateInvoice({ locale }: { locale: string }) {
             </button>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-3">
             {lineItems.map((item, index) => (
-              <div key={index} className="flex gap-2 items-start bg-slate-50 p-3 rounded-lg">
-                <div className="flex-grow space-y-2">
-                   {/* Product Search / Description */}
-                   <div className="relative">
+              <div key={index} className="flex gap-3 items-end bg-gradient-to-br from-slate-50 to-slate-100/50 p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+                <div className="flex-grow">
+                   <label className="text-xs font-medium text-slate-600 block mb-1.5">{t.description}</label>
+                   {/* Product Input with Browse Button */}
+                   <div className="relative flex gap-2">
                       <input
-                        list={`products-list-${index}`}
                         type="text"
-                        placeholder={t.description}
+                        placeholder={locale === 'fi' ? 'Kirjoita tuote/palvelu kuvaus tai selaa...' : 'Type product/service or browse...'}
                         value={item.description}
-                        onChange={(e) => {
-                             updateLineItem(index, "description", e.target.value);
-                             // Attempt to auto-fill if matches exact
-                             const match = products.find(p => p.name === e.target.value);
-                             if (match) handleProductSelect(index, match);
-                        }}
-                        className="w-full rounded-md border border-slate-200 p-2 text-sm focus:border-slate-900 focus:outline-none"
+                        onChange={(e) => updateLineItem(index, "description", e.target.value)}
+                        className="flex-1 rounded-lg border-2 border-slate-200 bg-white p-2.5 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 focus:outline-none transition-all"
                         required
                       />
-                      <datalist id={`products-list-${index}`}>
-                          {products.map(p => (
-                              <option key={p.id} value={p.name}>
-                                  {p.name} - {p.sale_price || p.price}€
-                              </option>
-                          ))}
-                      </datalist>
+                      <button
+                        type="button"
+                        onClick={() => openProductModal(index)}
+                        className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2 text-sm font-medium transition-all shadow-sm hover:shadow"
+                        title={locale === 'fi' ? 'Selaa tuotteita' : 'Browse products'}
+                      >
+                        <ShoppingCart className="h-4 w-4" />
+                        {locale === 'fi' ? 'Selaa' : 'Browse'}
+                      </button>
                    </div>
                 </div>
-                <div className="w-20">
-                    <label className="text-[10px] text-slate-500 block mb-1">{t.qty}</label>
+                <div className="w-24">
+                  <label className="text-xs font-medium text-slate-600 block mb-1.5">{t.qty}</label>
                   <input
                     type="number"
-                    placeholder={t.qty}
+                    placeholder="1"
                     value={item.quantity}
                     onChange={(e) => updateLineItem(index, "quantity", Number(e.target.value))}
-                    className="w-full rounded-md border border-slate-200 p-2 text-sm focus:border-slate-900 focus:outline-none"
+                    className="w-full rounded-lg border-2 border-slate-200 bg-white p-2.5 text-sm text-center font-medium focus:border-green-500 focus:ring-2 focus:ring-green-100 focus:outline-none transition-all"
                     min="1"
                   />
                 </div>
-                <div className="w-28">
-                 <label className="text-[10px] text-slate-500 block mb-1">Hinta (sis. ALV)</label>
+                <div className="w-32">
+                  <label className="text-xs font-medium text-slate-600 block mb-1.5">
+                    {locale === 'fi' ? 'Hinta (sis. ALV)' : 'Price (incl. VAT)'}
+                  </label>
                   <input
                     type="number"
-                    placeholder="Gross Price"
+                    placeholder="0.00"
                     value={grossPrices[index]}
                     onChange={(e) => handleGrossPriceChange(index, Number(e.target.value))}
-                    className="w-full rounded-md border border-slate-200 p-2 text-sm focus:border-slate-900 focus:outline-none"
+                    className="w-full rounded-lg border-2 border-slate-200 bg-white p-2.5 text-sm text-right font-medium focus:border-amber-500 focus:ring-2 focus:ring-amber-100 focus:outline-none transition-all"
                     step="0.01"
                   />
                 </div>
-                <div className="w-20">
-                 <label className="text-[10px] text-slate-500 block mb-1">{t.vat}</label>
+                <div className="w-24">
+                  <label className="text-xs font-medium text-slate-600 block mb-1.5">{t.vat}</label>
                   <input
                     type="number"
-                    placeholder={t.vat}
+                    placeholder="25.5"
                     value={item.vat_rate}
                     onChange={(e) => handleVatChange(index, Number(e.target.value))}
-                    className="w-full rounded-md border border-slate-200 p-2 text-sm focus:border-slate-900 focus:outline-none"
+                    className="w-full rounded-lg border-2 border-slate-200 bg-white p-2.5 text-sm text-center font-medium focus:border-purple-500 focus:ring-2 focus:ring-purple-100 focus:outline-none transition-all"
                   />
                 </div>
                 {lineItems.length > 1 && (
                   <button
                     type="button"
                     onClick={() => removeLineItem(index)}
-                    className="p-2 mt-5 text-slate-400 hover:text-red-500"
+                    className="p-2.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                    title={locale === 'fi' ? 'Poista rivi' : 'Remove line'}
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -467,6 +494,115 @@ export function AdminCreateInvoice({ locale }: { locale: string }) {
         </div>
 
       </form>
+
+      {/* Product Selection Modal */}
+      <Modal 
+        isOpen={productModalOpen} 
+        onClose={() => {
+          setProductModalOpen(false);
+          setCurrentLineIndex(null);
+          setProductSearchFilter("");
+        }}
+        title={locale === 'fi' ? 'Valitse Tuote' : 'Select Product'}
+      >
+        <div className="space-y-4">
+          {/* Search/Filter */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder={locale === 'fi' ? 'Hae tuotteita...' : 'Search products...'}
+              value={productSearchFilter}
+              onChange={(e) => setProductSearchFilter(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 rounded-lg border-2 border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 focus:outline-none"
+            />
+          </div>
+
+          {/* Products List */}
+          <div className="max-h-[60vh] overflow-y-auto space-y-2">
+            {products
+              .filter(p => 
+                productSearchFilter === "" ||
+                p.name.toLowerCase().includes(productSearchFilter.toLowerCase()) ||
+                p.sku?.toLowerCase().includes(productSearchFilter.toLowerCase())
+              )
+              .map(product => {
+                const imageUrl = product.files?.[0]
+                  ? `http://185.96.163.183:8000/api/v1/storage/${product.files[0].namespace}/${product.files[0].entity_id}/${product.files[0].filename}`
+                  : null;
+                const price = product.sale_price || product.regular_price;
+
+                return (
+                  <button
+                    key={product.id}
+                    type="button"
+                    onClick={() => currentLineIndex !== null && handleProductSelect(currentLineIndex, product)}
+                    className="w-full flex items-center gap-4 p-4 rounded-lg border-2 border-slate-200 hover:border-blue-500 hover:bg-blue-50 transition-all text-left group"
+                  >
+                    {/* Product Image/Avatar */}
+                    <div className="w-16 h-16 rounded-lg overflow-hidden bg-slate-100 flex-shrink-0 border border-slate-200">
+                      {imageUrl ? (
+                        <img 
+                          src={imageUrl} 
+                          alt={product.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Package className="h-8 w-8 text-slate-400" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Product Info */}
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-medium text-slate-900 truncate group-hover:text-blue-600">
+                        {product.name}
+                      </h4>
+                      {product.sku && (
+                        <p className="text-xs text-slate-500 mt-0.5">SKU: {product.sku}</p>
+                      )}
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-sm font-semibold text-blue-600">
+                          {price}€
+                        </span>
+                        {product.status && (
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${
+                            product.status === 'active' ? 'bg-green-100 text-green-700' :
+                            product.status === 'sold' ? 'bg-red-100 text-red-700' :
+                            'bg-slate-100 text-slate-700'
+                          }`}>
+                            {product.status}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Select Indicator */}
+                    <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center">
+                        <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            
+            {products.filter(p => 
+              productSearchFilter === "" ||
+              p.name.toLowerCase().includes(productSearchFilter.toLowerCase()) ||
+              p.sku?.toLowerCase().includes(productSearchFilter.toLowerCase())
+            ).length === 0 && (
+              <div className="text-center py-12 text-slate-500">
+                <Package className="h-12 w-12 mx-auto mb-3 text-slate-300" />
+                <p>{locale === 'fi' ? 'Tuotteita ei löytynyt' : 'No products found'}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

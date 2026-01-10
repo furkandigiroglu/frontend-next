@@ -93,18 +93,23 @@ export function SellDonateForm({ locale, dict }: SellDonateFormProps) {
 
     try {
       const formData = new FormData();
-      formData.append("name", data.name);
-      formData.append("email", data.email);
-      formData.append("phone", data.phone);
-      formData.append("product_name", data.productName);
-      formData.append("description", data.description);
-      if (data.price) formData.append("price", data.price);
+      formData.append("customer_name", data.name);
+      formData.append("customer_email", data.email);
+      formData.append("customer_phone", data.phone);
+      
+      // Combine product name and description since backend expects one description field
+      formData.append("trade_product_description", `Product: ${data.productName}\n${data.description}`);
+      
+      if (data.price) {
+        formData.append("trade_product_estimated_value", data.price);
+      }
 
       images.forEach((img) => {
         formData.append("images", img.file);
       });
 
-      const response = await fetch("http://185.96.163.183:8000/api/v1/sell-requests", {
+      // Use the correct endpoint for trade requests (handling sell/donate)
+      const response = await fetch("http://185.96.163.183:8000/api/v1/trade-requests", {
         method: "POST",
         body: formData,
       });

@@ -11,14 +11,14 @@ export default async function SiteLayout({
   params,
 }: {
   children: ReactNode;
-  params: Promise<{ locale: Locale }>;
+  params: Promise<{ locale: string }>;
 }) {
-  const { locale } = await params;
+  const { locale } = await params as { locale: Locale };
   const dictionary = await getDictionary(locale);
   const phoneHref = siteConfig.phone.replace(/\s+/g, "");
 
   return (
-    <div className="relative min-h-screen overflow-hidden">
+    <div className="relative min-h-screen">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_10%,_rgba(197,138,72,0.18),_transparent_45%),_radial-gradient(circle_at_80%_0,_rgba(58,90,64,0.2),_transparent_40%)]" />
       <div className="relative z-10 flex min-h-screen flex-col">
         <NavigationBar

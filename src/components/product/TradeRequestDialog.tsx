@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Modal } from "@/components/ui/Modal";
 import { Loader2, Upload, X } from "lucide-react";
 import { siteConfig } from "@/lib/siteConfig";
+import { compressImage } from "@/lib/imageUtils";
 
 interface TradeRequestDialogProps {
   isOpen: boolean;
@@ -61,29 +62,37 @@ export function TradeRequestDialog({ isOpen, onClose, product, locale }: TradeRe
     const form = e.currentTarget;
     const formData = new FormData();
     
+    // Required fields matching API documentation
+    formData.append("full_name", (form.elements.namedItem("name") as HTMLInputElement).value);
+    formData.append("email", (form.elements.namedItem("email") as HTMLInputElement).value);
+    formData.append("phone", (form.elements.namedItem("phone") as HTMLInputElement).value);
+    formData.append("request_type", "trade");
     formData.append("product_id", product.id);
-    formData.append("customer_name", (form.elements.namedItem("name") as HTMLInputElement).value);
-    formData.append("customer_email", (form.elements.namedItem("email") as HTMLInputElement).value);
-    formData.append("customer_phone", (form.elements.namedItem("phone") as HTMLInputElement).value);
-    formData.append("trade_product_description", (form.elements.namedItem("description") as HTMLTextAreaElement).value);
-    formData.append("trade_product_estimated_value", (form.elements.namedItem("value") as HTMLInputElement).value || "0");
+    formData.append("description", (form.elements.namedItem("description") as HTMLTextAreaElement).value);
+    
+    const estimatedValue = (form.elements.namedItem("value") as HTMLInputElement).value;
+    if (estimatedValue) {
+      formData.append("estimated_value", estimatedValue);
+    }
     
     selectedFiles.forEach(file => {
       formData.append("images", file);
     });
 
     try {
-      const res = await fetch(`/api/v1/trade-requests/`, {
+      const res = await fetch(`${siteConfig.apiUrl}/api/v1/trade-requests`, {
         method: "POST",
         body: formData,
       });
 
       if (!res.ok) {
-        throw new Error("Failed to submit trade request");
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.detail || "Failed to submit trade request");
       }
 
       setSuccess(true);
     } catch (err) {
+      console.error("Trade request error:", err);
       setError(locale === "fi" ? "Virhe lähetyksessä. Yritä uudelleen." : "Error submitting. Please try again.");
     } finally {
       setLoading(false);

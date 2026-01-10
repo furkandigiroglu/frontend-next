@@ -162,7 +162,7 @@ export function CartClient({ locale }: { locale: string }) {
 
             <ul role="list" className="divide-y divide-slate-200 border-b border-t border-slate-200">
               {items.map(({ product, quantity }) => {
-                const price = product.sale_price || product.regular_price || 0;
+                const price = Number(product.sale_price || product.regular_price || 0);
                 const image = product.files?.[0]
                   ? `http://185.96.163.183:8000/api/v1/storage/${product.files[0].namespace}/${product.files[0].entity_id}/${product.files[0].filename}`
                   : null;
